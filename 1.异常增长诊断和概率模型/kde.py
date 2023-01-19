@@ -8,23 +8,24 @@ from sklearn.neighbors import KernelDensity
 from sklearn.model_selection import GridSearchCV, LeaveOneOut
 
 
+# 生成样本矩阵
 def get_sample_matrix():
     months = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
     days = {1: 31, 2: 28, 3: 31, 4: 30, 5: 31, 6: 30, 7: 31, 8: 31, 9: 30, 10: 31, 11: 30, 12: 31}
-    data_len = 3040
+    data_len = 70407
     # 样本矩阵
     _sample_matrix = np.zeros((data_len, 12))
     # 数据库
-    conn = sqlite3.connect('负荷数据表（微型）.db')
+    conn = sqlite3.connect('负荷数据表.db')
     cur = conn.cursor()
     # 获取自编码器模型
-    auto_encoder = get_autoencoder("AutoEncoder_20230117_132712.path")
+    auto_encoder = get_autoencoder("AutoEncoder_20230118_213844.path")
     # 获取数据
-    cur.execute('''select * from "负荷数据表" where "年份" = 2016 ''')
+    cur.execute('''select * from "负荷数据表" where "年份" = 2017 ''')
     conn.commit()
     results = cur.fetchall()
     for idx, result in enumerate(results):
-        sample = np.array(result[34:34+365]) / 1000
+        sample = np.array(result[33:33+365]) / 1000
         # 输入模型
         normal_component, abnormal_component, mse = evaluate(_auto_encoder=auto_encoder, _sample=sample)
         for index, month in enumerate(months):
@@ -36,6 +37,7 @@ def get_sample_matrix():
     return _sample_matrix
 
 
+# 窗宽计算
 def h_optimizer(_sample_matrix):
     # 窗宽h的计算（https://www.zhihu.com/question/27301358）
     n = np.size(_sample_matrix, 0)
@@ -46,6 +48,7 @@ def h_optimizer(_sample_matrix):
     return _h
 
 
+# 计算异常增长分量处于某个区间的概率
 def probability(_xl, _xu, _sample_matrix):
     # _xl为下界，_xu为上界
     def _kde(_sample):
@@ -59,9 +62,32 @@ def probability(_xl, _xu, _sample_matrix):
     for i in range(len(_xl)):
         l_u.append([_xl[i], _xu[i]])
     vegas_integrator = vegas.Integrator(l_u)
-    result = vegas_integrator(_kde, nitn=10, neval=1e3)
+    result = vegas_integrator(_kde, nitn=10, neval=50)
     # print(result.summary())
     return result.mean, _h
+
+
+# 获取某个概率对应的异常增长分量
+def find_abnormal_component(_probability, _sample_matrix):
+    dim = np.size(_sample_matrix, 1)
+    _xl = -np.ones(dim)*0
+    _xu = np.ones(dim)*0.015
+    _xu_right = np.ones(dim)*0.03
+    _xu_left = np.ones(dim)*0
+    for idx in range(dim):
+        print(f"正在计算{idx+1}月的{_probability*100}%概率区间...")
+        _p, _h = probability(_xl=np.array([_xl[idx]]), _xu=np.array([_xu[idx]]), _sample_matrix=np.reshape(_sample_matrix[:, idx], (-1, 1)))
+        while np.fabs(_p - _probability) > 1E-3:
+            if _p > _probability:
+                _xu_right[idx] = _xu[idx]
+            elif _p < _probability:
+                _xu_left[idx] = _xu[idx]
+            else:
+                break
+            _xu[idx] = 0.5 * (_xu_right[idx] + _xu_left[idx])
+            _p, _h = probability(_xl=np.array([_xl[idx]]), _xu=np.array([_xu[idx]]), _sample_matrix=np.reshape(_sample_matrix[:, idx], (-1, 1)))
+            print(_p - _probability)
+    return _xl, _xu
 
 
 def kde(_sample, _sample_matrix, _h):
@@ -83,18 +109,33 @@ if __name__ == '__main__':
     print("正在读取异常增长样本矩阵...")
     sample_matrix = load_variable("sample_matrix.kde")
     # sample_matrix的结构必须是行为样本，列为维度
-    # 分别每个月计算核密度估计结果，并给出区间概率和概率密度函数图像
+    # 计算10%、20%、30%概率的区间和概率密度函数图像
+    print(f"正在计算概率区间...")
+    # 给出10%、20%、30%概率的区间
+    xl, xu_10 = find_abnormal_component(_probability=0.1, _sample_matrix=sample_matrix)
+    save_variable(xl, "xl.kde")
+    save_variable(xu_10, "xu_10.kde")
+    xl, xu_20 = find_abnormal_component(_probability=0.2, _sample_matrix=sample_matrix)
+    save_variable(xu_20, "xu_20.kde")
+    xl, xu_30 = find_abnormal_component(_probability=0.3, _sample_matrix=sample_matrix)
+    save_variable(xu_30, "xu_30.kde")
+    xl = load_variable("xl.kde")
+    xu_10 = load_variable("xu_10.kde")
+    xu_20 = load_variable("xu_20.kde")
+    xu_30 = load_variable("xu_30.kde")
+    sns.lineplot(x=range(1, 13), y=xl)
+    sns.lineplot(x=range(1, 13), y=xu_10)
+    sns.lineplot(x=range(1, 13), y=xu_20)
+    sns.lineplot(x=range(1, 13), y=xu_30)
+    plt.show()
+    print(f"正在计算概率密度函数...")
+    # 给出概率密度函数图像
     for idx in range(12):
-        print(f"正在计算{idx+1}月...")
-        # 给出区间概率
-        xl = -np.ones(1)*0
-        xu = np.ones(1)*0.015
-        p, h = probability(_xl=xl, _xu=xu, _sample_matrix=np.reshape(sample_matrix[:, idx], (-1, 1)))
-        print(f"{xl}至{xu}的概率是{p*100:2f}%")
-        # 给出概率密度函数图像
         x = np.arange(-0.05, 0.05, 0.0005)
         y = np.zeros_like(x)
         for i, xi in enumerate(x):
+            # 计算窗宽h
+            h = h_optimizer(_sample_matrix=np.reshape(sample_matrix[:, idx], (-1, 1)))
             y[i] = kde(_sample=xi, _sample_matrix=np.reshape(sample_matrix[:, idx], (-1, 1)), _h=h)
         sns.lineplot(x=x, y=y)
     plt.show()

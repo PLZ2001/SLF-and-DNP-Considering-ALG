@@ -14,6 +14,9 @@ class DatasetForAE(Dataset):
         self.data_len = _data_len
         self.conn = sqlite3.connect(path)
         self.cur = self.conn.cursor()
+        self.cur.execute('''select * from "负荷数据表" where "年份" = 2016''')
+        self.conn.commit()
+        self.results = self.cur.fetchall()
 
     # 用来获取样本的总数目
     def __len__(self):
@@ -21,11 +24,8 @@ class DatasetForAE(Dataset):
 
     # 通过idx来获取数据库的输入和输出
     def __getitem__(self, idx):
-        self.cur.execute('''select * from "负荷数据表" where "年份" = 2016 AND "field1" = ? ''', (idx,))
-        self.conn.commit()
-        result = self.cur.fetchall()
         # 以1000kW为基准值进行标幺化
-        _input = torch.from_numpy(np.array(result[0][34:34+365])) / 1000
+        _input = torch.from_numpy(np.array(self.results[idx][33:33+365])) / 1000
         _input = _input.float()
         return _input, _input
 
@@ -103,8 +103,8 @@ if __name__ == '__main__':
     # 数据库名
     db = "负荷数据表.db"
     # 训练参数设置
-    batch_size = 128
-    learning_rate = 0.005
+    batch_size = 1024
+    learning_rate = 0.0001
     # 设置训练代数
     epochs = 20
     # 构建torch格式的数据库
@@ -122,7 +122,7 @@ if __name__ == '__main__':
     #     sns.lineplot(x=range(1, 365+1), y=data[row, :])
     # plt.show()
 
-    device = "cpu"
+    device = "cuda"
     # 开始训练
     auto_encoder = AutoEncoder().to(device)
     # 误差函数
@@ -144,4 +144,4 @@ if __name__ == '__main__':
     plt.show()
     # 保存模型参数
     date = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
-    torch.save(auto_encoder.state_dict(), f"AutoEncoder_{date}.path")
+    torch.save(auto_encoder.state_dict(), f"AutoEncoder_{date}.path")

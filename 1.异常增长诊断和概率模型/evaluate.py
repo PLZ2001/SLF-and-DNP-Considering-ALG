@@ -84,16 +84,16 @@ if __name__ == '__main__':
     conn = sqlite3.connect('负荷数据表.db')
     cur = conn.cursor()
 
-    auto_encoder = get_autoencoder("AutoEncoder_20230117_132712.path")
+    auto_encoder = get_autoencoder("AutoEncoder_20230118_213844.path")
 
-    data_len = 3040
-    indexes = [1101, 102, 103]  # 夏峰型1101 无峰无谷型102 夏谷型103
+    data_len = 70407
+    indexes = [101+70407, 112+70407]  # 101夏谷型 112夏峰型
     for idx in indexes:
         # 获取数据
         cur.execute('''select * from "负荷数据表" where "field1" = ? ''', (idx,))
         conn.commit()
         result = cur.fetchall()
-        sample = np.array(result[0][34:34+365]) / 1000
+        sample = np.array(result[0][33:33+365]) / 1000
         # 输入模型
         normal_component, abnormal_component, mse = evaluate(_auto_encoder=auto_encoder, _sample=sample)
         # 展示结果
