@@ -1,6 +1,6 @@
 import sqlite3
 import numpy as np
-from evaluate import get_autoencoder, evaluate, save_variable, load_variable
+from AE_evaluate import get_autoencoder1, evaluate, save_variable, load_variable
 import vegas
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -16,10 +16,10 @@ def get_sample_matrix():
     # 样本矩阵
     _sample_matrix = np.zeros((data_len, 12))
     # 数据库
-    conn = sqlite3.connect('负荷数据表.db')
+    conn = sqlite3.connect(r'D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划\0.数据集清洗\负荷数据表.db')
     cur = conn.cursor()
     # 获取自编码器模型
-    auto_encoder = get_autoencoder("AutoEncoder_20230118_213844.path")
+    auto_encoder = get_autoencoder1("AutoEncoder_20230118_213844.path")
     # 获取数据
     cur.execute('''select * from "负荷数据表" where "年份" = 2017 ''')
     conn.commit()
