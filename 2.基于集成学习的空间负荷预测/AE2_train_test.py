@@ -37,7 +37,7 @@ class DatasetForAE(Dataset):
 
     # 用来获取样本的总数目
     def __len__(self):
-        return self.data_len
+        return self.data_len*12
 
     # 通过idx来获取数据库的输入和输出
     def __getitem__(self, idx):
@@ -66,25 +66,23 @@ class DatasetForAE(Dataset):
 
     def get_social_index(self):
         # 20个社会指标 9-21 26-32
-        social_index = np.zeros((self.data_len, 20))
+        social_index = np.zeros((self.data_len*12, 20))
         for idx in range(self.data_len):
-            social_index[idx, 0:13] = self.results[idx][9:22]
-            social_index[idx, 13:20] = self.results[idx][26:33]
+            social_index[idx*12:(idx+1)*12, 0:13] = np.tile(self.results[idx][9:22], (12, 1))
+            social_index[idx*12:(idx+1)*12, 13:20] = np.tile(self.results[idx][26:33], (12, 1))
         return social_index
 
     def get_electrical_index(self):
-        # 12*3+12+1+1=50个电力指标
-        electrical_index = np.zeros((self.data_len, 50))
+        # 4个电力指标
+        electrical_index = np.zeros((self.data_len*12, 4))
         auto_encoder = get_autoencoder1(r"D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划\1.异常增长诊断和概率模型\AutoEncoder_20230118_213844.path")
         for idx in range(self.data_len):
             load_profile_365 = np.array(self.results[idx][33:33+365])
             load_profile_365, abnormal_component, mse = evaluate(_auto_encoder=auto_encoder, _sample=load_profile_365)
-            electrical_index[idx, 0:0+12] = monthly_maximum_load(_load_profile_365=load_profile_365)
-            electrical_index[idx, 12:12+12] = monthly_average_load(_load_profile_365=load_profile_365)
-            electrical_index[idx, 24:24+12] = monthly_minimum_load(_load_profile_365=load_profile_365)
-            electrical_index[idx, 36:36+12] = monthly_load_rate(_load_profile_365=load_profile_365)
-            electrical_index[idx, 48] = seasonal_unbalance_coefficient(_load_profile_365=load_profile_365)
-            electrical_index[idx, 49] = annual_load_rate(_load_profile_365=load_profile_365)
+            electrical_index[idx*12:(idx+1)*12, 0] = monthly_maximum_load(_load_profile_365=load_profile_365)
+            electrical_index[idx*12:(idx+1)*12, 1] = monthly_average_load(_load_profile_365=load_profile_365)
+            electrical_index[idx*12:(idx+1)*12, 2] = monthly_minimum_load(_load_profile_365=load_profile_365)
+            electrical_index[idx*12:(idx+1)*12, 3] = monthly_load_rate(_load_profile_365=load_profile_365)
         return electrical_index
 
 
@@ -151,14 +149,14 @@ def annual_load_rate(_load_profile_365):
 # 对所有指标设定固定的基值，以进行归一化
 def normalization(all_indexes):
     max_base = [10, 0.2, 800, 40, 20, 5, 2000, 60000000000, 2000000000, 1000000000000, 2, 100, 300, 2000, 8000, 100, 100, 100, 100, 100]
-    max_base.extend([1000]*36)
-    max_base.extend([1]*14)
+    max_base.extend([1000]*3)
+    max_base.extend([1]*1)
     min_base = [0,  0,   0,   0,  0,  0, 0,    0,           0,          0,             0, 0,   0,   1900, 0,    0,   0,   0,   0,   0]
-    min_base.extend([0]*50)
+    min_base.extend([0]*4)
 
     n = np.size(all_indexes, 0)
-    max_base = np.tile(np.reshape(np.array(max_base), (1, 70)), (n, 1))
-    min_base = np.tile(np.reshape(np.array(min_base), (1, 70)), (n, 1))
+    max_base = np.tile(np.reshape(np.array(max_base), (1, 24)), (n, 1))
+    min_base = np.tile(np.reshape(np.array(min_base), (1, 24)), (n, 1))
 
     return (all_indexes - min_base) / (max_base - min_base)
 
@@ -168,14 +166,14 @@ class AutoEncoder(nn.Module):
     def __init__(self) -> None:
         super().__init__()
         self.encoder = nn.Sequential(
-            nn.Linear(70, 64),
+            nn.Linear(24, 16),
             nn.GELU(),
-            nn.Linear(64, 32),
+            nn.Linear(16, 12),
         )
         self.decoder = nn.Sequential(
-            nn.Linear(32, 64),
+            nn.Linear(12, 16),
             nn.GELU(),
-            nn.Linear(64, 70),
+            nn.Linear(16, 24),
         )
 
     def forward(self, _x):
@@ -230,26 +228,27 @@ if __name__ == '__main__':
     # 数据库名
     db = r"D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划\0.数据集清洗\负荷数据表.db"
     # 训练参数设置
-    batch_size = 1024
-    learning_rate = 0.001
+    batch_size = 4096
+    learning_rate = 0.005
     # 设置训练代数
     epochs = 100
     # 构建torch格式的数据库
     dataset = DatasetForAE(path=db, _data_len=data_len)
-    dataset_train, dataset_test = random_split(dataset=dataset, lengths=[int(0.8*data_len), data_len-int(0.8*data_len)])
+    dataset_train, dataset_test = random_split(dataset=dataset, lengths=[int(0.8*data_len*12), data_len*12-int(0.8*data_len*12)])
     dataloader_train = DataLoader(dataset=dataset_train, batch_size=batch_size)
     dataloader_test = DataLoader(dataset=dataset_test, batch_size=batch_size)
 
-    # 画出所有的训练集
+    # # 画出所有的训练集
     # cnt = 0
     # for x, y in dataloader_train:
     #     data = x.numpy() if cnt == 0 else np.concatenate((data, x.numpy()), axis=0)
     #     cnt += 1
-    #     print(f"加载数据集{np.size(data, 0)}/{data_len}")
-    # sns.set_context({'figure.figsize': [15, 5]})
+    #     print(f"加载数据集{np.size(data, 0)}/{data_len*12}")
+    # sns.set_context({'figure.figsize': [10, 5]})
     # for row in range(min(np.size(data, 0), 10000)):
-    #     sns.lineplot(x=range(1, 70+1), y=data[row, :])
-    #     print(f"绘制进度{row}/{data_len}")
+    #     sns.lineplot(x=range(1, 24+1), y=data[row, :])
+    #     if row % 100 == 0:
+    #         print(f"绘制进度{row}/{data_len*12}")
     # plt.show()
 
     device = "cpu"
