@@ -62,32 +62,35 @@ def probability(_xl, _xu, _sample_matrix):
     for i in range(len(_xl)):
         l_u.append([_xl[i], _xu[i]])
     vegas_integrator = vegas.Integrator(l_u)
-    result = vegas_integrator(_kde, nitn=10, neval=50)
+    result = vegas_integrator(_kde, nitn=10, neval=200)
     # print(result.summary())
     return result.mean, _h
 
 
-# 获取某个概率对应的异常增长分量
+# 获取某个概率对应的异常增长分量（此处概率的定义是：假如负荷增长，则增长超过某个量的概率，属于条件概率）
 def find_abnormal_component(_probability, _sample_matrix):
     dim = np.size(_sample_matrix, 1)
     _xl = -np.ones(dim)*0
-    _xu = np.ones(dim)*0.015
-    _xu_right = np.ones(dim)*0.03
-    _xu_left = np.ones(dim)*0
+    _xu = np.ones(dim)*0.1
+    _xl_right = np.ones(dim)*0.1
+    _xl_left = -np.ones(dim)*0.1
     for idx in range(dim):
         print(f"正在计算{idx+1}月的{_probability*100}%概率区间...")
+        # 先求增长的概率
+        _p_increase, _h = probability(_xl=np.array([0]), _xu=np.array([0.1]), _sample_matrix=np.reshape(_sample_matrix[:, idx], (-1, 1)))
+        # 用二分法求解
         _p, _h = probability(_xl=np.array([_xl[idx]]), _xu=np.array([_xu[idx]]), _sample_matrix=np.reshape(_sample_matrix[:, idx], (-1, 1)))
-        while np.fabs(_p - _probability) > 1E-3:
-            if _p > _probability:
-                _xu_right[idx] = _xu[idx]
-            elif _p < _probability:
-                _xu_left[idx] = _xu[idx]
+        while np.fabs(_p/_p_increase - _probability) > 5E-2:
+            if _p/_p_increase < _probability:
+                _xl_right[idx] = _xl[idx]
+            elif _p/_p_increase > _probability:
+                _xl_left[idx] = _xl[idx]
             else:
                 break
-            _xu[idx] = 0.5 * (_xu_right[idx] + _xu_left[idx])
+            _xl[idx] = 0.5 * (_xl_right[idx] + _xl_left[idx])
             _p, _h = probability(_xl=np.array([_xl[idx]]), _xu=np.array([_xu[idx]]), _sample_matrix=np.reshape(_sample_matrix[:, idx], (-1, 1)))
-            print(_p - _probability)
-    return _xl, _xu
+            print(_p/_p_increase - _probability)
+    return _xl
 
 
 def kde(_sample, _sample_matrix, _h):
@@ -109,24 +112,22 @@ if __name__ == '__main__':
     print("正在读取异常增长样本矩阵...")
     sample_matrix = load_variable("sample_matrix.kde")
     # sample_matrix的结构必须是行为样本，列为维度
-    # 计算10%、20%、30%概率的区间和概率密度函数图像
+    # 计算90%、60%、30%概率的异常增长值和概率密度函数图像
     print(f"正在计算概率区间...")
-    # 给出10%、20%、30%概率的区间
-    xl, xu_10 = find_abnormal_component(_probability=0.1, _sample_matrix=sample_matrix)
-    save_variable(xl, "xl.kde")
-    save_variable(xu_10, "xu_10.kde")
-    xl, xu_20 = find_abnormal_component(_probability=0.2, _sample_matrix=sample_matrix)
-    save_variable(xu_20, "xu_20.kde")
-    xl, xu_30 = find_abnormal_component(_probability=0.3, _sample_matrix=sample_matrix)
-    save_variable(xu_30, "xu_30.kde")
-    xl = load_variable("xl.kde")
-    xu_10 = load_variable("xu_10.kde")
-    xu_20 = load_variable("xu_20.kde")
-    xu_30 = load_variable("xu_30.kde")
-    sns.lineplot(x=range(1, 13), y=xl)
-    sns.lineplot(x=range(1, 13), y=xu_10)
-    sns.lineplot(x=range(1, 13), y=xu_20)
-    sns.lineplot(x=range(1, 13), y=xu_30)
+    # 给出90%、60%、30%概率的异常增长值
+    abnormal_90 = find_abnormal_component(_probability=0.9, _sample_matrix=sample_matrix)
+    save_variable(abnormal_90, "abnormal_90.kde")
+    abnormal_60 = find_abnormal_component(_probability=0.6, _sample_matrix=sample_matrix)
+    save_variable(abnormal_60, "abnormal_60.kde")
+    abnormal_30 = find_abnormal_component(_probability=0.3, _sample_matrix=sample_matrix)
+    save_variable(abnormal_30, "abnormal_30.kde")
+    abnormal_90 = load_variable("abnormal_90.kde")
+    abnormal_60 = load_variable("abnormal_60.kde")
+    abnormal_30 = load_variable("abnormal_30.kde")
+    sns.lineplot(x=range(1, 13), y=[0]*12)
+    sns.lineplot(x=range(1, 13), y=abnormal_90)
+    sns.lineplot(x=range(1, 13), y=abnormal_60)
+    sns.lineplot(x=range(1, 13), y=abnormal_30)
     plt.show()
     print(f"正在计算概率密度函数...")
     # 给出概率密度函数图像
