@@ -37,44 +37,60 @@ def get_autoencoder1(path):
 
 
 # 异常增长分量诊断模型（输入是365点的年负荷曲线（而且是基值为1000kW的标幺值））
-def evaluate(_auto_encoder, _sample):
+def evaluate(_auto_encoder, _increment):
     device = "cpu"
-    _x = torch.from_numpy(_sample).float()
+    _x = torch.from_numpy(_increment).float()
     _x = _x.to(device)
     _pred = _auto_encoder(_x)
     _pred = _pred.to("cpu").detach().numpy()
-    _mse = np.average(np.power(_sample-_pred, 2))
-    _normal_component = _pred
-    _abnormal_component = _sample - _normal_component
-    rd = sm.tsa.seasonal_decompose(_abnormal_component, period=7)
-    _abnormal_component_trend = np.array(rd.trend)
-    _abnormal_component_trend[0:3] = _abnormal_component[0:3]
-    _abnormal_component_trend[362:365] = _abnormal_component[362:365]
-    _normal_component = _sample - _abnormal_component_trend
-    return _normal_component, _abnormal_component_trend, _mse
+    _mse = np.average(np.power(_increment-_pred, 2))
+    _normal_increment = _pred
+    _abnormal_increment = _increment - _normal_increment
+    rd = sm.tsa.seasonal_decompose(_abnormal_increment, period=7)
+    _abnormal_increment_trend = np.array(rd.trend)
+    _abnormal_increment_trend[0:3] = _abnormal_increment[0:3]
+    _abnormal_increment_trend[362:365] = _abnormal_increment[362:365]
+    _normal_increment = _increment - _abnormal_increment_trend
+    return _normal_increment, _abnormal_increment_trend, _mse
+
+
+# 根据异常增长分量诊断模型获取正常增长的结果（输入是365点的年负荷曲线）
+def evaluate_and_get_normal_component(_auto_encoder, _old_load_profile_365, _new_load_profile_365):
+    _increment = (_new_load_profile_365 - _old_load_profile_365) / 1000
+    # 输入模型
+    normal_increment, abnormal_increment, mse = evaluate(_auto_encoder=_auto_encoder, _increment=_increment)
+    return (_old_load_profile_365 + 1000 * normal_increment)
 
 
 if __name__ == '__main__':
-    conn = sqlite3.connect(r'D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划\0.数据集清洗\负荷数据表.db')
+    conn = sqlite3.connect(r'D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划0.数据集清洗\负荷数据表.db')
     cur = conn.cursor()
 
-    auto_encoder = get_autoencoder1("AutoEncoder_20230118_213844.path")
+    auto_encoder = get_autoencoder1("AutoEncoder_20230125_123858.path")
 
     data_len = 70407
-    indexes = [101+70407, 112+70407]  # 101夏谷型 112夏峰型
+    indexes = [101]
     for idx in indexes:
         # 获取数据
         cur.execute('''select * from "负荷数据表" where "field1" = ? ''', (idx,))
         conn.commit()
         result = cur.fetchall()
-        sample = np.array(result[0][33:33+365]) / 1000
+
+        cur.execute('''select * from "负荷数据表" where "field1" = ? ''', (idx+data_len,))
+        conn.commit()
+        result1 = cur.fetchall()
+        increment = np.array(result1[0][33:33+365]) / 1000 - np.array(result[0][33:33+365]) / 1000
         # 输入模型
-        normal_component, abnormal_component, mse = evaluate(_auto_encoder=auto_encoder, _sample=sample)
+        normal_increment, abnormal_increment, mse = evaluate(_auto_encoder=auto_encoder, _increment=increment)
         # 展示结果
         print(f"MSE:{mse:>8f}")
-        print(f"LB检验结果:{lb_test(abnormal_component)}")
+        print(f"LB检验结果:{lb_test(abnormal_increment)}")
         sns.set_context({'figure.figsize': [15, 5]})
-        sns.lineplot(x=range(1, 365+1), y=sample)
-        sns.lineplot(x=range(1, 365+1), y=normal_component, linestyle='--')
-        sns.lineplot(x=range(1, 365+1), y=abnormal_component, linestyle=':')
+        sns.lineplot(x=range(1, 365+1), y=increment)
+        sns.lineplot(x=range(1, 365+1), y=normal_increment, linestyle='--')
+        sns.lineplot(x=range(1, 365+1), y=abnormal_increment, linestyle=':')
+        plt.show()
+        sns.lineplot(x=range(1, 365+1), y=np.array(result[0][33:33+365]) / 1000)
+        sns.lineplot(x=range(1, 365+1), y=np.array(result1[0][33:33+365]) / 1000, linestyle='--')
+        sns.lineplot(x=range(1, 365+1), y=np.array(result[0][33:33+365]) / 1000 + normal_increment, linestyle=':')
         plt.show()

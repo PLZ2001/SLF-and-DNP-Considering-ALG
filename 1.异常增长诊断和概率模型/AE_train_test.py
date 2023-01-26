@@ -14,7 +14,7 @@ class DatasetForAE(Dataset):
         self.data_len = _data_len
         self.conn = sqlite3.connect(path)
         self.cur = self.conn.cursor()
-        self.cur.execute('''select * from "负荷数据表" where "年份" = 2016''')
+        self.cur.execute('''select * from "负荷数据表" where "年份" = 2016 OR "年份" = 2017''')
         self.conn.commit()
         self.results = self.cur.fetchall()
 
@@ -25,7 +25,7 @@ class DatasetForAE(Dataset):
     # 通过idx来获取数据库的输入和输出
     def __getitem__(self, idx):
         # 以1000kW为基准值进行标幺化
-        _input = torch.from_numpy(np.array(self.results[idx][33:33+365])) / 1000
+        _input = torch.from_numpy(np.array(self.results[idx+self.data_len][33:33+365])) / 1000 - torch.from_numpy(np.array(self.results[idx][33:33+365])) / 1000
         _input = _input.float()
         return _input, _input
 
@@ -37,13 +37,25 @@ class AutoEncoder(nn.Module):
         self.encoder = nn.Sequential(
             nn.Linear(365, 128),
             nn.GELU(),
-            # nn.Dropout(0.2),
+            nn.Dropout(0.2),
             nn.Linear(128, 64),
             nn.GELU(),
-            # nn.Dropout(0.2),
+            nn.Dropout(0.2),
             nn.Linear(64, 32),
+            nn.GELU(),
+            nn.Linear(32, 16),
+            nn.GELU(),
+            nn.Linear(16, 8),
+            nn.GELU(),
+            nn.Linear(8, 4),
         )
         self.decoder = nn.Sequential(
+            nn.Linear(4, 8),
+            nn.GELU(),
+            nn.Linear(8, 16),
+            nn.GELU(),
+            nn.Linear(16, 32),
+            nn.GELU(),
             nn.Linear(32, 64),
             nn.GELU(),
             nn.Linear(64, 128),
@@ -101,7 +113,7 @@ if __name__ == '__main__':
     # 数据长度
     data_len = 70407
     # 数据库名
-    db = r"D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划\0.数据集清洗\负荷数据表.db"
+    db = r"D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划0.数据集清洗\负荷数据表.db"
     # 训练参数设置
     batch_size = 1024
     learning_rate = 0.0001

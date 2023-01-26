@@ -16,24 +16,24 @@ def get_sample_matrix():
     # 样本矩阵
     _sample_matrix = np.zeros((data_len, 12))
     # 数据库
-    conn = sqlite3.connect(r'D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划\0.数据集清洗\负荷数据表.db')
+    conn = sqlite3.connect(r'D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划0.数据集清洗\负荷数据表.db')
     cur = conn.cursor()
     # 获取自编码器模型
-    auto_encoder = get_autoencoder1("AutoEncoder_20230118_213844.path")
+    auto_encoder = get_autoencoder1("AutoEncoder_20230125_123858.path")
     # 获取数据
-    cur.execute('''select * from "负荷数据表" where "年份" = 2017 ''')
+    cur.execute('''select * from "负荷数据表" where "年份" = 2016 OR "年份" = 2017 ''')
     conn.commit()
     results = cur.fetchall()
-    for idx, result in enumerate(results):
-        sample = np.array(result[33:33+365]) / 1000
+    for idx in range(data_len):
+        increment = np.array(results[idx+data_len][33:33+365]) / 1000 - np.array(results[idx][33:33+365]) / 1000
         # 输入模型
-        normal_component, abnormal_component, mse = evaluate(_auto_encoder=auto_encoder, _sample=sample)
+        normal_increment, abnormal_increment, mse = evaluate(_auto_encoder=auto_encoder, _increment=increment)
         for index, month in enumerate(months):
             start = 0
             for month_before in range(1, month):
                 start += days[month_before]
             end = start + days[month]
-            _sample_matrix[idx, index] = np.max(abnormal_component[start:end])
+            _sample_matrix[idx, index] = np.max(abnormal_increment[start:end])
     return _sample_matrix
 
 
@@ -46,6 +46,92 @@ def h_optimizer(_sample_matrix):
     s = np.sqrt(np.sum(np.linalg.norm(_sample_matrix - ave, axis=1)) / (n - 1))
     _h = 1.05 * s * np.power(n, -0.2)
     return _h
+
+
+# 生成概率密度函数
+def generate_pdf(_sample_matrix):
+    # dim = np.size(_sample_matrix, 1)
+    # _x = np.arange(-0.2, 0.2, 0.00001)
+    # _pdf = np.zeros((12, len(_x)))
+    # for idx in range(dim):
+    #     print(f"正在生成{idx+1}月的概率密度函数..")
+    #     _h = h_optimizer(_sample_matrix=np.reshape(_sample_matrix[:, idx], (-1, 1)))
+    #     for i in range(len(_x)):
+    #         _pdf[idx, i] = kde(_x[i], np.reshape(_sample_matrix[:, idx], (-1, 1)), _h)
+    # save_variable(_x, "x.pdf")
+    # save_variable(_pdf, "pdf.pdf")
+    _x = load_variable("x.pdf")
+    _pdf = load_variable("pdf.pdf")
+    print("概率密度函数生成完毕")
+    return _x, _pdf
+
+# 生成概率区间
+def generate_probability_range(_sample_matrix):
+    def next_l_u(_l, _u):
+        __l = _l
+        __u = _u
+        while True:
+            _u += 1
+            if _u >= len(_x):
+                return False, -1, -1
+            if pdf_index[_u] > pdf_index[__u]:
+                break
+        while True:
+            _l += 1
+            if _l >= len(_x):
+                return False, -1, -1
+            if pdf_index[_l] < pdf_index[__l]:
+                break
+        while _u - _l > 1:
+            while True:
+                _l += 1
+                if _l >= len(_x):
+                    return False, -1, -1
+                if pdf_index[_l] < pdf_index[__l]:
+                    break
+        while _l - _u > 1:
+            while True:
+                _u += 1
+                if _u >= len(_x):
+                    return False, -1, -1
+                if pdf_index[_u] > pdf_index[__u]:
+                    break
+        return True, _l, _u
+
+    _x, _pdf = generate_pdf(_sample_matrix)
+
+    dim = np.size(_sample_matrix, 1)
+    _xl = np.zeros((dim, len(_x)))
+    _xu = np.zeros((dim, len(_x)))
+    _p_range = np.zeros((dim, len(_x)))
+    for idx in range(dim):
+        # print(f"正在生成{idx+1}月的概率区间..")
+        pdf = _pdf[idx, :]
+        pdf_index = np.argsort(pdf)  # 获取从小到大排序的下标
+        pdf_index = pdf_index[::-1]  # 倒序
+        l = 1 if pdf_index[0] > pdf_index[1] else 0
+        u = 0 if pdf_index[0] > pdf_index[1] else 1
+        cnt = 0
+        _p = 0
+        while True:
+            _xl[idx, cnt] = _x[pdf_index[l]]
+            _xu[idx, cnt] = _x[pdf_index[u]]
+            # _p, _h = probability(_xl=np.array([_xl[idx, cnt]]), _xu=np.array([_xu[idx, cnt]]),
+            #                      _sample_matrix=np.reshape(_sample_matrix[:, idx], (-1, 1)))
+            _p += 0.00001 * (pdf[pdf_index[l]] + pdf[pdf_index[u]])
+            _p_range[idx, cnt] = _p
+            # print(cnt, _p)
+            success, l, u = next_l_u(l, u)
+            if not success:
+                break
+            cnt += 1
+    # save_variable(_xl, "xl.p_range")
+    # save_variable(_xu, "xu.p_range")
+    # save_variable(_p_range, "p_range.p_range")
+    # _xl = load_variable("xl.p_range")
+    # _xu = load_variable("xu.p_range")
+    # _p_range = load_variable("p_range.p_range")
+    return _xl, _xu, _p_range
 
 
 # 计算异常增长分量处于某个区间的概率
@@ -67,30 +153,20 @@ def probability(_xl, _xu, _sample_matrix):
     return result.mean, _h
 
 
-# 获取某个概率对应的异常增长分量（此处概率的定义是：假如负荷增长，则增长超过某个量的概率，属于条件概率）
-def find_abnormal_component(_probability, _sample_matrix):
+# 获取某个概率对应的异常增长分量
+def find_abnormal_increment(_probability, _sample_matrix):
     dim = np.size(_sample_matrix, 1)
-    _xl = -np.ones(dim)*0
-    _xu = np.ones(dim)*0.1
-    _xl_right = np.ones(dim)*0.1
-    _xl_left = -np.ones(dim)*0.1
+    _xl, _xu, _p_range = generate_probability_range(_sample_matrix)
+    xl = np.zeros(dim)
+    xu = np.zeros(dim)
     for idx in range(dim):
         print(f"正在计算{idx+1}月的{_probability*100}%概率区间...")
-        # 先求增长的概率
-        _p_increase, _h = probability(_xl=np.array([0]), _xu=np.array([0.1]), _sample_matrix=np.reshape(_sample_matrix[:, idx], (-1, 1)))
-        # 用二分法求解
-        _p, _h = probability(_xl=np.array([_xl[idx]]), _xu=np.array([_xu[idx]]), _sample_matrix=np.reshape(_sample_matrix[:, idx], (-1, 1)))
-        while np.fabs(_p/_p_increase - _probability) > 5E-2:
-            if _p/_p_increase < _probability:
-                _xl_right[idx] = _xl[idx]
-            elif _p/_p_increase > _probability:
-                _xl_left[idx] = _xl[idx]
-            else:
+        for (i, p_range) in enumerate(_p_range[idx, :]):
+            if p_range >= (1-_probability):
+                xl[idx] = _xl[idx, i]
+                xu[idx] = _xu[idx, i]
                 break
-            _xl[idx] = 0.5 * (_xl_right[idx] + _xl_left[idx])
-            _p, _h = probability(_xl=np.array([_xl[idx]]), _xu=np.array([_xu[idx]]), _sample_matrix=np.reshape(_sample_matrix[:, idx], (-1, 1)))
-            print(_p/_p_increase - _probability)
-    return _xl
+    return [xl, xu]
 
 
 def kde(_sample, _sample_matrix, _h):
@@ -112,31 +188,38 @@ if __name__ == '__main__':
     print("正在读取异常增长样本矩阵...")
     sample_matrix = load_variable("sample_matrix.kde")
     # sample_matrix的结构必须是行为样本，列为维度
+
+    print(f"正在计算概率密度函数...")
+    # 给出概率密度函数图像
+    x, pdf = generate_pdf(_sample_matrix=sample_matrix)
+    for idx in range(12):
+        sns.lineplot(x=x, y=pdf[idx, :])
+    plt.show()
+
     # 计算90%、60%、30%概率的异常增长值和概率密度函数图像
     print(f"正在计算概率区间...")
     # 给出90%、60%、30%概率的异常增长值
-    abnormal_90 = find_abnormal_component(_probability=0.9, _sample_matrix=sample_matrix)
-    save_variable(abnormal_90, "abnormal_90.kde")
-    abnormal_60 = find_abnormal_component(_probability=0.6, _sample_matrix=sample_matrix)
-    save_variable(abnormal_60, "abnormal_60.kde")
-    abnormal_30 = find_abnormal_component(_probability=0.3, _sample_matrix=sample_matrix)
-    save_variable(abnormal_30, "abnormal_30.kde")
-    abnormal_90 = load_variable("abnormal_90.kde")
-    abnormal_60 = load_variable("abnormal_60.kde")
-    abnormal_30 = load_variable("abnormal_30.kde")
+    abnormal_90 = find_abnormal_increment(_probability=0.9, _sample_matrix=sample_matrix)
+    # save_variable(abnormal_90, "abnormal_90.kde")
+    abnormal_60 = find_abnormal_increment(_probability=0.6, _sample_matrix=sample_matrix)
+    # save_variable(abnormal_60, "abnormal_60.kde")
+    abnormal_30 = find_abnormal_increment(_probability=0.3, _sample_matrix=sample_matrix)
+    # save_variable(abnormal_30, "abnormal_30.kde")
+    abnormal_10 = find_abnormal_increment(_probability=0.1, _sample_matrix=sample_matrix)
+    # save_variable(abnormal_10, "abnormal_10.kde")
+    # abnormal_90 = load_variable("abnormal_90.kde")
+    # abnormal_60 = load_variable("abnormal_60.kde")
+    # abnormal_30 = load_variable("abnormal_30.kde")
+    # abnormal_10 = load_variable("abnormal_10.kde")
     sns.lineplot(x=range(1, 13), y=[0]*12)
-    sns.lineplot(x=range(1, 13), y=abnormal_90)
-    sns.lineplot(x=range(1, 13), y=abnormal_60)
-    sns.lineplot(x=range(1, 13), y=abnormal_30)
+    sns.lineplot(x=range(1, 13), y=abnormal_90[0])
+    sns.lineplot(x=range(1, 13), y=abnormal_90[1])
+    sns.lineplot(x=range(1, 13), y=abnormal_60[0])
+    sns.lineplot(x=range(1, 13), y=abnormal_60[1])
+    sns.lineplot(x=range(1, 13), y=abnormal_30[0])
+    sns.lineplot(x=range(1, 13), y=abnormal_30[1])
+    sns.lineplot(x=range(1, 13), y=abnormal_10[0])
+    sns.lineplot(x=range(1, 13), y=abnormal_10[1])
     plt.show()
-    print(f"正在计算概率密度函数...")
-    # 给出概率密度函数图像
-    for idx in range(12):
-        x = np.arange(-0.05, 0.05, 0.0005)
-        y = np.zeros_like(x)
-        for i, xi in enumerate(x):
-            # 计算窗宽h
-            h = h_optimizer(_sample_matrix=np.reshape(sample_matrix[:, idx], (-1, 1)))
-            y[i] = kde(_sample=xi, _sample_matrix=np.reshape(sample_matrix[:, idx], (-1, 1)), _h=h)
-        sns.lineplot(x=x, y=y)
-    plt.show()
+
+
