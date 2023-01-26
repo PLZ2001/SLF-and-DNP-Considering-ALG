@@ -7,10 +7,9 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import datetime
 import sys
-sys.path.append(r"D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划\1.异常增长诊断和概率模型")
-from AE_evaluate import get_autoencoder1, evaluate, save_variable, load_variable
-from AE2_train_test import AutoEncoder, monthly_maximum_load, monthly_average_load, monthly_minimum_load, monthly_load_rate, seasonal_unbalance_coefficient, annual_load_rate, normalization
-from AE2_extraction import get_autoencoder2, extraction_all_month
+sys.path.append(r"D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划1.异常增长诊断和概率模型")
+from AE_evaluate import get_autoencoder1, evaluate_and_get_normal_component, save_variable, load_variable
+from AE2_extract import get_autoencoder2, extract_all_month
 
 
 def get_neighboring_load(_conn, _cur, condition, name):
@@ -50,12 +49,12 @@ class DatasetForSLF(Dataset):
         # self.index_map = self.generate_index_map()
         # save_variable(self.index_map, "index_map.dataset")
         # self.index_map = load_variable("index_map.dataset")
-        # 获取所有三维特征数据空间
+        # # 获取所有三维特征数据空间
         # self.features = self.get_features()
         # save_variable(self.features, "features.dataset")
-        # # 获取所有的待预测12点负荷曲线
+        # 获取所有的待预测12点负荷曲线
         # self.load_profile_12 = self.get_load_profile_12()
-        # save_variable(self.load_profile_12, "load_profile_12.dataset")
+        # # save_variable(self.load_profile_12, "load_profile_12.dataset")
         # 读取
 
         self.features = load_variable("features.dataset")
@@ -124,28 +123,27 @@ class DatasetForSLF(Dataset):
                 print(f"正在生成指标映射表...{idx}")
             load_profile_365 = np.array(self.results[idx][33:33+365])
             social_index = np.array(self.results[idx][9:33])
-            auto_encoder = get_autoencoder2("AutoEncoder_20230121_163138.path")
-            index_map[idx, :, :] = extraction_all_month(_auto_encoder=auto_encoder, _social_index=social_index, _load_profile_365=load_profile_365)
+            auto_encoder = get_autoencoder2("AutoEncoder_20230125_173655.path")
+            index_map[idx, :, :] = extract_all_month(_auto_encoder=auto_encoder, _social_index=social_index, _load_profile_365=load_profile_365)
         return index_map
 
     def get_load_profile_12(self):
         _load_profile_12 = np.zeros((self.data_len, 12))
         months = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
         days = {1: 31, 2: 28, 3: 31, 4: 30, 5: 31, 6: 30, 7: 31, 8: 31, 9: 30, 10: 31, 11: 30, 12: 31}
-        auto_encoder = get_autoencoder1(r"D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划\1.异常增长诊断和概率模型\AutoEncoder_20230118_213844.path")
+        auto_encoder = get_autoencoder1(r"D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划1.异常增长诊断和概率模型\AutoEncoder_20230125_123858.path")
         self.cur.execute('''select * from "负荷数据表" where "年份" = 2017 ''')
         self.conn.commit()
         results = self.cur.fetchall()
         for idx, result in enumerate(results):
-            sample = np.array(result[33:33+365]) / 1000
-            # 输入模型
-            normal_component, abnormal_component, mse = evaluate(_auto_encoder=auto_encoder, _sample=sample)
+            load_profile_365 = evaluate_and_get_normal_component(_auto_encoder=auto_encoder, _old_load_profile_365=np.array(self.results[idx][33:33+365]), _new_load_profile_365=np.array(result[33:33+365]))
+            load_profile_365 = load_profile_365 / 1000
             for index, month in enumerate(months):
                 start = 0
                 for month_before in range(1, month):
                     start += days[month_before]
                 end = start + days[month]
-                _load_profile_12[idx, index] = np.max(normal_component[start:end])
+                _load_profile_12[idx, index] = np.max(load_profile_365[start:end])
         return _load_profile_12
 
 
@@ -235,12 +233,12 @@ if __name__ == '__main__':
     # 数据长度
     data_len = 70407
     # 数据库名
-    db = r"D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划\0.数据集清洗\负荷数据表.db"
+    db = r"D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划0.数据集清洗\负荷数据表.db"
     # 训练参数设置
     batch_size = 4096
     learning_rate = 0.001
     # 设置训练代数
-    epochs = 400
+    epochs = 1000
     # 构建torch格式的数据库
     dataset = DatasetForSLF(path=db, _data_len=data_len)
     dataset_train, dataset_test = random_split(dataset=dataset, lengths=[int(0.8*data_len), data_len-int(0.8*data_len)])

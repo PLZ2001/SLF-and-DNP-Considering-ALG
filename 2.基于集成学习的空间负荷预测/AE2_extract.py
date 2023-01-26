@@ -4,8 +4,8 @@ import torch
 import seaborn as sns
 import matplotlib.pyplot as plt
 import sys
-sys.path.append(r"D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划\1.异常增长诊断和概率模型")
-from AE_evaluate import get_autoencoder1, evaluate, save_variable, load_variable
+sys.path.append(r"D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划1.异常增长诊断和概率模型")
+from AE_evaluate import get_autoencoder1, evaluate_and_get_normal_component, save_variable, load_variable
 from AE2_train_test import AutoEncoder, monthly_maximum_load, monthly_average_load, monthly_minimum_load, monthly_load_rate, seasonal_unbalance_coefficient, annual_load_rate, normalization
 
 
@@ -22,7 +22,7 @@ def get_autoencoder2(path):
 
 
 # 特征指标提取模型（输入是24个社会指标原始值、365点的年负荷曲线原始值以及指定的月份）
-def extraction(_auto_encoder, _social_index, _load_profile_365, _month):
+def extract(_auto_encoder, _social_index, _load_profile_365, _month):
     # 社会指标
     __social_index = np.zeros((1, 20))
     __social_index[0, 0:13] = _social_index[0:13]
@@ -30,10 +30,7 @@ def extraction(_auto_encoder, _social_index, _load_profile_365, _month):
 
     # 电力指标
     electrical_index = np.zeros((1, 4))
-    __auto_encoder = get_autoencoder1(r"D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划\1.异常增长诊断和概率模型\AutoEncoder_20230118_213844.path")
     __load_profile_365 = np.array(_load_profile_365)
-    __load_profile_365, abnormal_component, mse = evaluate(_auto_encoder=__auto_encoder, _sample=__load_profile_365 / 1000)
-    __load_profile_365 *= 1000
     electrical_index[0, 0] = monthly_maximum_load(_load_profile_365=__load_profile_365)[_month-1]
     electrical_index[0, 1] = monthly_average_load(_load_profile_365=__load_profile_365)[_month-1]
     electrical_index[0, 2] = monthly_minimum_load(_load_profile_365=__load_profile_365)[_month-1]
@@ -58,20 +55,21 @@ def extraction(_auto_encoder, _social_index, _load_profile_365, _month):
 
 
 # 特征指标提取模型（输入是24个社会指标原始值、365点的年负荷曲线原始值以及指定的月份）
-def extraction_all_month(_auto_encoder, _social_index, _load_profile_365):
+def extract_all_month(_auto_encoder, _social_index, _load_profile_365):
     final_index = np.zeros((12, 12))
     for month in range(12):
         # 输入模型
-        index, pred, extra, mse = extraction(_auto_encoder=_auto_encoder, _social_index=_social_index, _load_profile_365=_load_profile_365, _month=month+1)
+        index, pred, extra, mse = extract(_auto_encoder=_auto_encoder, _social_index=_social_index, _load_profile_365=_load_profile_365, _month=month + 1)
         final_index[month, :] = extra
     return final_index
 
 
 if __name__ == '__main__':
-    conn = sqlite3.connect(r'D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划\0.数据集清洗\负荷数据表.db')
+    conn = sqlite3.connect(r'D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划0.数据集清洗\负荷数据表.db')
     cur = conn.cursor()
 
-    auto_encoder = get_autoencoder2("AutoEncoder_20230121_163138.path")
+    auto_encoder = get_autoencoder2("AutoEncoder_20230125_173655.path")
+    _auto_encoder = get_autoencoder1(r"D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划1.异常增长诊断和概率模型\AutoEncoder_20230125_123858.path")
 
     data_len = 70407*2
     indexes = [1100, 1300]  # 1100 1300
@@ -81,10 +79,16 @@ if __name__ == '__main__':
         cur.execute('''select * from "负荷数据表" where "field1" = ? ''', (idx,))
         conn.commit()
         result = cur.fetchall()
-        load_profile_365 = np.array(result[0][33:33+365])
+        if idx < 70407:
+            load_profile_365 = np.array(result[0][33:33+365])
+        else:
+            cur.execute('''select * from "负荷数据表" where "field1" = ? ''', (idx-70407,))
+            conn.commit()
+            result1 = cur.fetchall()
+            load_profile_365 = evaluate_and_get_normal_component(_auto_encoder=_auto_encoder, _old_load_profile_365=np.array(result1[0][33:33+365]), _new_load_profile_365=np.array(result[0][33:33+365]))
         social_index = np.array(result[0][9:33])
         # 输入模型
-        index, pred, extra, mse = extraction(_auto_encoder=auto_encoder, _social_index=social_index, _load_profile_365=load_profile_365, _month=month)
+        index, pred, extra, mse = extract(_auto_encoder=auto_encoder, _social_index=social_index, _load_profile_365=load_profile_365, _month=month)
         # 展示结果
         print(f"MSE:{mse:>8f}")
         sns.set_context({'figure.figsize': [10, 5]})

@@ -7,8 +7,8 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import datetime
 import sys
-sys.path.append(r"D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划\1.异常增长诊断和概率模型")
-from AE_evaluate import get_autoencoder1, evaluate, save_variable, load_variable
+sys.path.append(r"D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划1.异常增长诊断和概率模型")
+from AE_evaluate import get_autoencoder1, evaluate, evaluate_and_get_normal_component, save_variable, load_variable
 
 
 # 所有的数据集
@@ -16,21 +16,21 @@ class DatasetForAE(Dataset):
     def __init__(self, path, _data_len):
         self.data_len = _data_len
 
-        # self.conn = sqlite3.connect(path)
-        # self.cur = self.conn.cursor()
-        # self.cur.execute('''select * from "负荷数据表" where "年份" = 2016 OR "年份" = 2017''')
-        # self.conn.commit()
-        # self.results = self.cur.fetchall()
-        # # 填补缺失值
-        # self.missing_value_filling()
-        # # 获取社会指标
-        # self.social_index = self.get_social_index()
-        # # 获取电力指标
-        # self.electrical_index = self.get_electrical_index()
-        # # 指标合体
-        # self.index = np.concatenate((self.social_index, self.electrical_index), axis=1)
-        # # 保存指标
-        # save_variable(self.index, "index.dataset")
+        self.conn = sqlite3.connect(path)
+        self.cur = self.conn.cursor()
+        self.cur.execute('''select * from "负荷数据表" where "年份" = 2016 OR "年份" = 2017''')
+        self.conn.commit()
+        self.results = self.cur.fetchall()
+        # 填补缺失值
+        self.missing_value_filling()
+        # 获取社会指标
+        self.social_index = self.get_social_index()
+        # 获取电力指标
+        self.electrical_index = self.get_electrical_index()
+        # 指标合体
+        self.index = np.concatenate((self.social_index, self.electrical_index), axis=1)
+        # 保存指标
+        save_variable(self.index, "index.dataset")
         self.index = load_variable("index.dataset")
         # 指标归一化
         self.index = normalization(self.index)
@@ -75,10 +75,14 @@ class DatasetForAE(Dataset):
     def get_electrical_index(self):
         # 4个电力指标
         electrical_index = np.zeros((self.data_len*12, 4))
-        auto_encoder = get_autoencoder1(r"D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划\1.异常增长诊断和概率模型\AutoEncoder_20230118_213844.path")
+        auto_encoder = get_autoencoder1(fr"D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划1.异常增长诊断和概率模型\AutoEncoder_20230125_123858.path")
         for idx in range(self.data_len):
-            load_profile_365 = np.array(self.results[idx][33:33+365])
-            load_profile_365, abnormal_component, mse = evaluate(_auto_encoder=auto_encoder, _sample=load_profile_365)
+            if idx % 100 == 0:
+                print(idx)
+            if idx < 70407:
+                load_profile_365 = np.array(self.results[idx][33:33+365])
+            else:
+                load_profile_365 = evaluate_and_get_normal_component(_auto_encoder=auto_encoder, _old_load_profile_365=np.array(self.results[idx - 70407][33:33+365]), _new_load_profile_365=np.array(self.results[idx][33:33+365]))
             electrical_index[idx*12:(idx+1)*12, 0] = monthly_maximum_load(_load_profile_365=load_profile_365)
             electrical_index[idx*12:(idx+1)*12, 1] = monthly_average_load(_load_profile_365=load_profile_365)
             electrical_index[idx*12:(idx+1)*12, 2] = monthly_minimum_load(_load_profile_365=load_profile_365)
@@ -226,7 +230,7 @@ if __name__ == '__main__':
     # 数据长度
     data_len = 70407*2
     # 数据库名
-    db = r"D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划\0.数据集清洗\负荷数据表.db"
+    db = r"D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划0.数据集清洗\负荷数据表.db"
     # 训练参数设置
     batch_size = 4096
     learning_rate = 0.005
@@ -238,18 +242,18 @@ if __name__ == '__main__':
     dataloader_train = DataLoader(dataset=dataset_train, batch_size=batch_size)
     dataloader_test = DataLoader(dataset=dataset_test, batch_size=batch_size)
 
-    # # 画出所有的训练集
-    # cnt = 0
-    # for x, y in dataloader_train:
-    #     data = x.numpy() if cnt == 0 else np.concatenate((data, x.numpy()), axis=0)
-    #     cnt += 1
-    #     print(f"加载数据集{np.size(data, 0)}/{data_len*12}")
-    # sns.set_context({'figure.figsize': [10, 5]})
-    # for row in range(min(np.size(data, 0), 10000)):
-    #     sns.lineplot(x=range(1, 24+1), y=data[row, :])
-    #     if row % 100 == 0:
-    #         print(f"绘制进度{row}/{data_len*12}")
-    # plt.show()
+    # 画出所有的训练集
+    cnt = 0
+    for x, y in dataloader_train:
+        data = x.numpy() if cnt == 0 else np.concatenate((data, x.numpy()), axis=0)
+        cnt += 1
+        print(f"加载数据集{np.size(data, 0)}/{data_len*12}")
+    sns.set_context({'figure.figsize': [10, 5]})
+    for row in range(min(np.size(data, 0), 10000)):
+        sns.lineplot(x=range(1, 24+1), y=data[row, :])
+        if row % 100 == 0:
+            print(f"绘制进度{row}/{data_len*12}")
+    plt.show()
 
     device = "cpu"
     # 开始训练
