@@ -16,7 +16,7 @@ def get_sample_matrix():
     # 样本矩阵
     _sample_matrix = np.zeros((data_len, 12))
     # 数据库
-    conn = sqlite3.connect(r'D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划0.数据集清洗\负荷数据表.db')
+    conn = sqlite3.connect(r'D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划\0.数据集清洗\负荷数据表.db')
     cur = conn.cursor()
     # 获取自编码器模型
     auto_encoder = get_autoencoder1("AutoEncoder_20230125_123858.path")

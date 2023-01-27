@@ -63,7 +63,7 @@ def evaluate_and_get_normal_component(_auto_encoder, _old_load_profile_365, _new
 
 
 if __name__ == '__main__':
-    conn = sqlite3.connect(r'D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划0.数据集清洗\负荷数据表.db')
+    conn = sqlite3.connect(r'D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划\0.数据集清洗\负荷数据表.db')
     cur = conn.cursor()
 
     auto_encoder = get_autoencoder1("AutoEncoder_20230125_123858.path")

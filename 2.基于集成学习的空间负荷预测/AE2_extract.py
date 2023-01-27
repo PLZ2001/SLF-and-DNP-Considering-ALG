@@ -4,7 +4,7 @@ import torch
 import seaborn as sns
 import matplotlib.pyplot as plt
 import sys
-sys.path.append(r"D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划1.异常增长诊断和概率模型")
+sys.path.append(r"D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划\1.异常增长诊断和概率模型")
 from AE_evaluate import get_autoencoder1, evaluate_and_get_normal_component, save_variable, load_variable
 from AE2_train_test import AutoEncoder, monthly_maximum_load, monthly_average_load, monthly_minimum_load, monthly_load_rate, seasonal_unbalance_coefficient, annual_load_rate, normalization
 
@@ -65,11 +65,11 @@ def extract_all_month(_auto_encoder, _social_index, _load_profile_365):
 
 
 if __name__ == '__main__':
-    conn = sqlite3.connect(r'D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划0.数据集清洗\负荷数据表.db')
+    conn = sqlite3.connect(r'D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划\0.数据集清洗\负荷数据表.db')
     cur = conn.cursor()
 
     auto_encoder = get_autoencoder2("AutoEncoder_20230125_173655.path")
-    _auto_encoder = get_autoencoder1(r"D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划1.异常增长诊断和概率模型\AutoEncoder_20230125_123858.path")
+    _auto_encoder = get_autoencoder1(r"D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划\1.异常增长诊断和概率模型\AutoEncoder_20230125_123858.path")
 
     data_len = 70407*2
     indexes = [1100, 1300]  # 1100 1300

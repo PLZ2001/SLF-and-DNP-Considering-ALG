@@ -7,7 +7,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import datetime
 import sys
-sys.path.append(r"D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划1.异常增长诊断和概率模型")
+sys.path.append(r"D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划\1.异常增长诊断和概率模型")
 from AE_evaluate import get_autoencoder1, evaluate_and_get_normal_component, save_variable, load_variable
 from AE2_extract import get_autoencoder2, extract_all_month
 
@@ -131,7 +131,7 @@ class DatasetForSLF(Dataset):
         _load_profile_12 = np.zeros((self.data_len, 12))
         months = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
         days = {1: 31, 2: 28, 3: 31, 4: 30, 5: 31, 6: 30, 7: 31, 8: 31, 9: 30, 10: 31, 11: 30, 12: 31}
-        auto_encoder = get_autoencoder1(r"D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划1.异常增长诊断和概率模型\AutoEncoder_20230125_123858.path")
+        auto_encoder = get_autoencoder1(r"D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划\1.异常增长诊断和概率模型\AutoEncoder_20230125_123858.path")
         self.cur.execute('''select * from "负荷数据表" where "年份" = 2017 ''')
         self.conn.commit()
         results = self.cur.fetchall()
@@ -233,7 +233,7 @@ if __name__ == '__main__':
     # 数据长度
     data_len = 70407
     # 数据库名
-    db = r"D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划0.数据集清洗\负荷数据表.db"
+    db = r"D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划\0.数据集清洗\负荷数据表.db"
     # 训练参数设置
     batch_size = 4096
     learning_rate = 0.001
