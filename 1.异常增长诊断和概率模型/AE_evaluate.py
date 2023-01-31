@@ -69,7 +69,7 @@ if __name__ == '__main__':
     auto_encoder = get_autoencoder1("AutoEncoder_20230125_123858.path")
 
     data_len = 70407
-    indexes = [101]
+    indexes = [101, 113]
     for idx in indexes:
         # 获取数据
         cur.execute('''select * from "负荷数据表" where "field1" = ? ''', (idx,))
