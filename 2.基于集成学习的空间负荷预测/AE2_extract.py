@@ -56,11 +56,13 @@ def extract(_auto_encoder, _social_index, _load_profile_365, _month):
 
 # 特征指标提取模型（输入是24个社会指标原始值、365点的年负荷曲线原始值以及指定的月份）
 def extract_all_month(_auto_encoder, _social_index, _load_profile_365):
-    final_index = np.zeros((12, 12))
+    # final_index = np.zeros((12, 12))
+    final_index = np.zeros((12, 24))
     for month in range(12):
         # 输入模型
         index, pred, extra, mse = extract(_auto_encoder=_auto_encoder, _social_index=_social_index, _load_profile_365=_load_profile_365, _month=month + 1)
-        final_index[month, :] = extra
+        # final_index[month, :] = extra
+        final_index[month, :] = index
     return final_index
 
 
@@ -72,7 +74,7 @@ if __name__ == '__main__':
     _auto_encoder = get_autoencoder1(r"D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划\1.异常增长诊断和概率模型\AutoEncoder_20230125_123858.path")
 
     data_len = 70407*2
-    indexes = [1100, 1300]  # 1100 1300
+    indexes = [1004, 1004+70407, 1100, 1300]  # 1100 1300
     month = 1
     for idx in indexes:
         # 获取数据
