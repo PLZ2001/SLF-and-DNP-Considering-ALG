@@ -53,7 +53,7 @@ def get_features_by_name(load_name, year):
     _conn = sqlite3.connect("负荷相邻数据表.db")
     _cur = _conn.cursor()
 
-    features = np.zeros((4, 12, 12))
+    features = np.zeros((4, 12, 24))
     auto_encoder = get_autoencoder2("AutoEncoder_20230125_173655.path")
     _auto_encoder = get_autoencoder1(r"D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划\1.异常增长诊断和概率模型\AutoEncoder_20230125_123858.path")
 
@@ -66,13 +66,14 @@ def get_features_by_name(load_name, year):
         features[0, :, :] = extract_all_month(_auto_encoder=auto_encoder, _social_index=social_index,
                                               _load_profile_365=load_profile_365)
 
-        radius = ["0至100m以内", "100至200m以内", "200至300m以内"]
+        # radius = ["0至100m以内", "100至200m以内", "200至300m以内"]
+        radius = ["0至100m以内"]
         for cnt, neighboring_condition in enumerate(radius):
             neighboring_load = get_neighboring_load(_conn, _cur, neighboring_condition, load_name)
             if len(neighboring_load) > 0:
-                features[cnt + 1, :, :] = np.zeros((12, 12))
+                features[cnt + 1, :, :] = np.zeros((12, 24))
                 for load_name in neighboring_load:
-                    cur.execute('''select * from "负荷数据表" where "负荷名称" = ? ''', (load_name,))
+                    cur.execute('''select * from "负荷数据表" where "负荷名称" = ? AND "年份" = ?  ''', (load_name, year, ))
                     conn.commit()
                     result = cur.fetchall()
                     load_profile_365 = np.array(result[0][33:33 + 365])
@@ -94,11 +95,12 @@ def get_features_by_name(load_name, year):
         features[0, :, :] = extract_all_month(_auto_encoder=auto_encoder, _social_index=social_index,
                                               _load_profile_365=load_profile_365)
 
-        radius = ["0至100m以内", "100至200m以内", "200至300m以内"]
+        # radius = ["0至100m以内", "100至200m以内", "200至300m以内"]
+        radius = ["0至100m以内"]
         for cnt, neighboring_condition in enumerate(radius):
             neighboring_load = get_neighboring_load(_conn, _cur, neighboring_condition, load_name)
             if len(neighboring_load) > 0:
-                features[cnt + 1, :, :] = np.zeros((12, 12))
+                features[cnt + 1, :, :] = np.zeros((12, 24))
                 for load_name in neighboring_load:
                     cur.execute('''select * from "负荷数据表" where "负荷名称" = ? AND "年份" = ? ''', (load_name, year, ))
                     conn.commit()
@@ -116,9 +118,11 @@ def get_features_by_name(load_name, year):
     return features
 
 
-def get_load_profile_12_by_name(load_name, year, have_abnormal_component):
+def get_load_profile_12_by_name(load_name, year, have_abnormal_component, neighboring_index):
     conn = sqlite3.connect(r'D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划\0.数据集清洗\负荷数据表.db')
     cur = conn.cursor()
+    _conn = sqlite3.connect("负荷相邻数据表.db")
+    _cur = _conn.cursor()
 
     _load_profile_12 = np.zeros(12)
     months = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
@@ -130,16 +134,68 @@ def get_load_profile_12_by_name(load_name, year, have_abnormal_component):
     conn.commit()
     result = cur.fetchall()
     if have_abnormal_component:
-        load_profile_365 = np.array(result[0][33:33+365]) / 1000
+        if neighboring_index == 0:
+            load_profile_365 = np.array(result[0][33:33+365]) / 1000
+        else:
+            radius = ["0至100m以内", "100至200m以内", "200至300m以内"]
+            neighboring_condition = radius[neighboring_index - 1]
+            neighboring_load = get_neighboring_load(_conn, _cur, neighboring_condition, load_name)
+            if len(neighboring_load) > 0:
+                load_profile_365 = np.zeros((365))
+                for load_name in neighboring_load:
+                    cur.execute('''select * from "负荷数据表" where "负荷名称" = ? AND "年份" = ?  ''', (load_name, year, ))
+                    conn.commit()
+                    _result = cur.fetchall()
+                    load_profile_365 += np.array(_result[0][33:33 + 365]) / 1000
+                load_profile_365 /= len(neighboring_load)
+            else:
+                load_profile_365 = np.array(result[0][33:33+365]) / 1000
     else:
         if year == 2016:
-            load_profile_365 = np.array(result[0][33:33+365]) / 1000
+            if neighboring_index == 0:
+                load_profile_365 = np.array(result[0][33:33+365]) / 1000
+            else:
+                radius = ["0至100m以内", "100至200m以内", "200至300m以内"]
+                neighboring_condition = radius[neighboring_index - 1]
+                neighboring_load = get_neighboring_load(_conn, _cur, neighboring_condition, load_name)
+                if len(neighboring_load) > 0:
+                    load_profile_365 = np.zeros((365))
+                    for load_name in neighboring_load:
+                        cur.execute('''select * from "负荷数据表" where "负荷名称" = ? AND "年份" = ?  ''', (load_name, year, ))
+                        conn.commit()
+                        _result = cur.fetchall()
+                        load_profile_365 += np.array(_result[0][33:33 + 365]) / 1000
+                    load_profile_365 /= len(neighboring_load)
+                else:
+                    load_profile_365 = np.array(result[0][33:33+365]) / 1000
         elif year == 2017:
-            cur.execute('''select * from "负荷数据表" where "负荷名称" = ? AND "年份" = ? ''', (load_name, year-1,))
-            conn.commit()
-            result1 = cur.fetchall()
-            load_profile_365 = evaluate_and_get_normal_component(_auto_encoder=auto_encoder, _old_load_profile_365=np.array(result1[0][33:33+365]), _new_load_profile_365=np.array(result[0][33:33+365]))
-            load_profile_365 = load_profile_365 / 1000
+            if neighboring_index == 0:
+                cur.execute('''select * from "负荷数据表" where "负荷名称" = ? AND "年份" = ? ''', (load_name, year-1,))
+                conn.commit()
+                result1 = cur.fetchall()
+                load_profile_365 = evaluate_and_get_normal_component(_auto_encoder=auto_encoder, _old_load_profile_365=np.array(result1[0][33:33+365]), _new_load_profile_365=np.array(result[0][33:33+365]))
+                load_profile_365 = load_profile_365 / 1000
+            else:
+                radius = ["0至100m以内", "100至200m以内", "200至300m以内"]
+                neighboring_condition = radius[neighboring_index - 1]
+                neighboring_load = get_neighboring_load(_conn, _cur, neighboring_condition, load_name)
+                if len(neighboring_load) > 0:
+                    load_profile_365 = np.zeros((365))
+                    for load_name in neighboring_load:
+                        cur.execute('''select * from "负荷数据表" where "负荷名称" = ? AND "年份" = ? ''', (load_name, year, ))
+                        conn.commit()
+                        _result = cur.fetchall()
+                        cur.execute('''select * from "负荷数据表" where "负荷名称" = ? AND "年份" = ? ''', (load_name, year-1, ))
+                        conn.commit()
+                        _result1 = cur.fetchall()
+                        load_profile_365 += evaluate_and_get_normal_component(_auto_encoder=auto_encoder, _old_load_profile_365=np.array(_result1[0][33:33+365]), _new_load_profile_365=np.array(_result[0][33:33+365])) / 1000
+                    load_profile_365 /= len(neighboring_load)
+                else:
+                    cur.execute('''select * from "负荷数据表" where "负荷名称" = ? AND "年份" = ? ''', (load_name, year-1,))
+                    conn.commit()
+                    result1 = cur.fetchall()
+                    load_profile_365 = evaluate_and_get_normal_component(_auto_encoder=auto_encoder, _old_load_profile_365=np.array(result1[0][33:33+365]), _new_load_profile_365=np.array(result[0][33:33+365]))
+                    load_profile_365 = load_profile_365 / 1000
         elif year == 2018:
             cur.execute('''select * from "负荷数据表" where "负荷名称" = ? AND "年份" = ? ''', (load_name, year-1,))
             conn.commit()
@@ -160,11 +216,11 @@ def get_load_profile_12_by_name(load_name, year, have_abnormal_component):
 
 
 if __name__ == '__main__':
-    # cnn = get_cnn("CNN_20230126_111239.path")
-    cnn = get_stacking_cnn("stacking_CNN_20230127_185430.path")
+    # cnn = get_cnn("CNN_20230212_190104.path")
+    cnn = get_stacking_cnn("stacking_CNN_20230212_191903.path")
 
     data_len = 70407
-    indexes = [1007, 1005, 1003]
+    indexes = [1008, 1003]
     for idx in indexes:
         # 获取数据
         conn = sqlite3.connect(r'D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划\0.数据集清洗\负荷数据表.db')
@@ -174,12 +230,13 @@ if __name__ == '__main__':
         result = cur.fetchall()
 
         features = get_features_by_name(result[0][1], 2016)
+        features = features[0:2, :, :]
 
         # 输入模型
         pred = forecast(_cnn=cnn, _features=features)
-        real_normal = get_load_profile_12_by_name(result[0][1], 2017, False)
-        real_total = get_load_profile_12_by_name(result[0][1], 2017, True)
-        # real_normal_past = get_load_profile_12_by_name(result[0][1], 2017, False)
+        real_normal = get_load_profile_12_by_name(result[0][1], 2017, False, 0)
+        real_total = get_load_profile_12_by_name(result[0][1], 2017, True, 0)
+        # real_normal_past = get_load_profile_12_by_name(result[0][1], 2017, False, 0)
         mse = np.average(np.power(real_normal-pred, 2))
         # 展示结果
         print(f"MSE:{mse:>8f}")

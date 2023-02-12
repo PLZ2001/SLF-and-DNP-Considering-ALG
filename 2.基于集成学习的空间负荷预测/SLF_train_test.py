@@ -52,9 +52,9 @@ class DatasetForSLF(Dataset):
         # # 获取所有三维特征数据空间
         # self.features = self.get_features()
         # save_variable(self.features, "features.dataset")
-        # 获取所有的待预测12点负荷曲线
+        # # 获取所有的待预测12点负荷曲线
         # self.load_profile_12 = self.get_load_profile_12()
-        # # save_variable(self.load_profile_12, "load_profile_12.dataset")
+        # save_variable(self.load_profile_12, "load_profile_12.dataset")
         # 读取
 
         self.features = load_variable("features.dataset")
@@ -66,7 +66,7 @@ class DatasetForSLF(Dataset):
 
     # 通过idx来获取数据库的输入和输出
     def __getitem__(self, idx):
-        _input = torch.from_numpy(self.features[idx, :, :, :])
+        _input = torch.from_numpy(self.features[idx, 0:2, :, :])
         _input = _input.float().unsqueeze(0)  # 使输入从4,12,12变成1,4,12,12
         _output = torch.from_numpy(self.load_profile_12[idx, :])
         _output = _output.float()
@@ -93,7 +93,7 @@ class DatasetForSLF(Dataset):
 
     def get_features(self):
         # 70407个，4层，12行，12列
-        features = np.zeros((self.data_len, 4, 12, 12))
+        features = np.zeros((self.data_len, 4, 12, 24))
         _conn = sqlite3.connect("负荷相邻数据表.db")
         _cur = _conn.cursor()
         # 遍历70407个
@@ -107,7 +107,7 @@ class DatasetForSLF(Dataset):
             for cnt, neighboring_condition in enumerate(self.radius):
                     neighboring_load = get_neighboring_load(_conn, _cur, neighboring_condition, load_name)
                     if len(neighboring_load) > 0:
-                        features[idx, cnt+1, :, :] = np.zeros((12, 12))
+                        features[idx, cnt+1, :, :] = np.zeros((12, 24))
                         for load_name in neighboring_load:
                             features[idx, cnt+1, :, :] += self.index_map[self.name_map[load_name], :, :]
                         features[idx, cnt+1, :, :] /= len(neighboring_load)
@@ -117,7 +117,7 @@ class DatasetForSLF(Dataset):
 
     def generate_index_map(self):
         # 根据负荷名称，求出12个月的12个特征指标
-        index_map = np.zeros((self.data_len, 12, 12))
+        index_map = np.zeros((self.data_len, 12, 24))
         for idx in range(self.data_len):
             if idx % 100 == 0:
                 print(f"正在生成指标映射表...{idx}")
@@ -153,32 +153,40 @@ class CNN(nn.Module):
         super().__init__()
         # N = (W − F + 2P )/S+1
         self.network = nn.Sequential(
-            # 4,12,12 *1
-            nn.Conv3d(in_channels=1, out_channels=256, kernel_size=(1, 6, 6), stride=(1, 1, 1), padding=(0, 0, 0)),
+            # 4,12,24 *1
+            nn.Conv3d(in_channels=1, out_channels=128, kernel_size=(1, 6, 6), stride=(1, 1, 1), padding=(0, 0, 0)),
             nn.GELU(),
-            # 4,7,7 *256
-            nn.Conv3d(in_channels=256, out_channels=128, kernel_size=(1, 3, 3), stride=(1, 1, 1), padding=(0, 0, 0)),
-            nn.GELU(),
-            # 4,5,5 *128
+            nn.Dropout(p=0.5),
+            # 4,7,19 *256
             nn.Conv3d(in_channels=128, out_channels=64, kernel_size=(1, 3, 3), stride=(1, 1, 1), padding=(0, 0, 0)),
             nn.GELU(),
-            # 4,5,5 *64
+            nn.Dropout(p=0.5),
+            # 4,5,17 *128
+            nn.Conv3d(in_channels=64, out_channels=64, kernel_size=(1, 3, 3), stride=(1, 1, 1), padding=(0, 1, 1)),
+            nn.GELU(),
+            nn.Dropout(p=0.5),
+            # 4,5,17 *64
             nn.Conv3d(in_channels=64, out_channels=32, kernel_size=(1, 3, 3), stride=(1, 1, 1), padding=(0, 1, 1)),
             nn.GELU(),
-            # 4,5,5 *32
+            nn.Dropout(p=0.5),
+            # 4,5,17 *32
             nn.Conv3d(in_channels=32, out_channels=32, kernel_size=(1, 3, 3), stride=(1, 1, 1), padding=(0, 1, 1)),
             nn.GELU(),
-            # 4,5,5 *32
+            nn.Dropout(p=0.5),
+            # 4,5,17 *32
             nn.AdaptiveAvgPool3d((2, 3, 3)),
             # 2,3,3 *32
             nn.Flatten(1, -1),
             # 2*3*3*32
             nn.Linear(576, 256),
             nn.GELU(),
+            nn.Dropout(p=0.5),
             nn.Linear(256, 128),
             nn.GELU(),
+            nn.Dropout(p=0.5),
             nn.Linear(128, 64),
             nn.GELU(),
+            nn.Dropout(p=0.5),
             nn.Linear(64, 32),
             nn.GELU(),
             nn.Linear(32, 12),
@@ -238,7 +246,7 @@ if __name__ == '__main__':
     batch_size = 4096
     learning_rate = 0.001
     # 设置训练代数
-    epochs = 1000
+    epochs = 100
     # 构建torch格式的数据库
     dataset = DatasetForSLF(path=db, _data_len=data_len)
     dataset_train, dataset_test = random_split(dataset=dataset, lengths=[int(0.8*data_len), data_len-int(0.8*data_len)])
@@ -248,6 +256,10 @@ if __name__ == '__main__':
     device = "cuda"
     # 开始训练
     cnn = CNN().to(device)
+    # 在已有模型基础上训练
+    params = torch.load("CNN_20230212_120031.path", map_location=torch.device(device))
+    cnn.load_state_dict(params)
+    cnn.train()
     # 误差函数
     loss_fn = nn.MSELoss()
     loss_fn = loss_fn.to(device)
@@ -260,6 +272,13 @@ if __name__ == '__main__':
         print(f"Epoch {t+1}\n-------------------------------")
         train_loss[t] = train_loop(dataloader_train, cnn, loss_fn, optimizer)
         test_loss[t] = test_loop(dataloader_test, cnn, loss_fn)
+        if (t+1) % 10 == 0 and (t+1) >= 50:
+            sns.lineplot(x=range(1, (t+1) + 1), y=train_loss[0:(t+1)])
+            sns.lineplot(x=range(1, (t+1) + 1), y=test_loss[0:(t+1)])
+            plt.show()
+            choice = input("continue? Y/N")
+            if choice == 'n' or choice == 'N':
+                break
     print("Done!")
     # 输出损失曲线
     sns.lineplot(x=range(1, epochs+1), y=train_loss)
