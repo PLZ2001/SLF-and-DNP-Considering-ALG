@@ -60,8 +60,8 @@ def generate_pdf(_sample_matrix):
     #         _pdf[idx, i] = kde(_x[i], np.reshape(_sample_matrix[:, idx], (-1, 1)), _h)
     # save_variable(_x, "x.pdf")
     # save_variable(_pdf, "pdf.pdf")
-    _x = load_variable("x.pdf")
-    _pdf = load_variable("pdf.pdf")
+    _x = load_variable(r"D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划\1.异常增长诊断和概率模型\x.pdf")
+    _pdf = load_variable(r"D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划\1.异常增长诊断和概率模型\pdf.pdf")
     print("概率密度函数生成完毕")
     return _x, _pdf
 
