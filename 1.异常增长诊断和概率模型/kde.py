@@ -25,6 +25,7 @@ def get_sample_matrix():
     conn.commit()
     results = cur.fetchall()
     for idx in range(data_len):
+        print(idx)
         increment = np.array(results[idx+data_len][33:33+365]) / 1000 - np.array(results[idx][33:33+365]) / 1000
         # 输入模型
         normal_increment, abnormal_increment, mse = evaluate(_auto_encoder=auto_encoder, _increment=increment)
@@ -33,7 +34,8 @@ def get_sample_matrix():
             for month_before in range(1, month):
                 start += days[month_before]
             end = start + days[month]
-            _sample_matrix[idx, index] = np.max(abnormal_increment[start:end])
+            # 除以基值变为百分比
+            _sample_matrix[idx, index] = np.max(abnormal_increment[start:end]) / np.max((np.array(results[idx][33:33+365]) / 1000)[start:end])
     return _sample_matrix
 
 
@@ -51,7 +53,7 @@ def h_optimizer(_sample_matrix):
 # 生成概率密度函数
 def generate_pdf(_sample_matrix):
     # dim = np.size(_sample_matrix, 1)
-    # _x = np.arange(-0.2, 0.2, 0.00001)
+    # _x = np.arange(-1.0, 4.0, 0.0001)
     # _pdf = np.zeros((12, len(_x)))
     # for idx in range(dim):
     #     print(f"正在生成{idx+1}月的概率密度函数..")
@@ -63,42 +65,44 @@ def generate_pdf(_sample_matrix):
     _x = load_variable(r"D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划\1.异常增长诊断和概率模型\x.pdf")
     _pdf = load_variable(r"D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划\1.异常增长诊断和概率模型\pdf.pdf")
     print("概率密度函数生成完毕")
-    return _x, _pdf
+    # dim = np.size(_sample_matrix, 1)
+    # _x = np.arange(-1.0, 4.0, 0.0001)
+    # _cdf = np.zeros((12, len(_x)))
+    # for idx in range(dim):
+    #     print(f"正在生成{idx+1}月的累积分布函数..")
+    #     sum = 0
+    #     for i in range(len(_x)):
+    #         sum += _pdf[idx, i] * 0.0001
+    #         _cdf[idx, i] = sum
+    # save_variable(_cdf, "cdf.cdf")
+    _cdf = load_variable(r"D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划\1.异常增长诊断和概率模型\cdf.cdf")
+    print("累积分布函数生成完毕")
+    return _x, _pdf, _cdf
 
 # 生成概率区间
 def generate_probability_range(_sample_matrix):
     def next_l_u(_l, _u):
         __l = _l
         __u = _u
+        _l += 1
+        _u -= 1
+        if _u <= _l:
+            return False, 0, 0
         while True:
-            _u += 1
-            if _u >= len(_x):
-                return False, -1, -1
-            if pdf_index[_u] > pdf_index[__u]:
-                break
-        while True:
-            _l += 1
-            if _l >= len(_x):
-                return False, -1, -1
-            if pdf_index[_l] < pdf_index[__l]:
-                break
-        while _u - _l > 1:
-            while True:
+            if cdf[_l] > 1 - cdf[_u]:
+                _u -= 1
+                if _u <= _l:
+                    return False, 0, 0
+                if cdf[_l] <= 1 - cdf[_u]:
+                    return True, _l, _u
+            if cdf[_l] < 1 - cdf[_u]:
                 _l += 1
-                if _l >= len(_x):
-                    return False, -1, -1
-                if pdf_index[_l] < pdf_index[__l]:
-                    break
-        while _l - _u > 1:
-            while True:
-                _u += 1
-                if _u >= len(_x):
-                    return False, -1, -1
-                if pdf_index[_u] > pdf_index[__u]:
-                    break
-        return True, _l, _u
+                if _u <= _l:
+                    return False, 0, 0
+                if cdf[_l] >= 1 - cdf[_u]:
+                    return True, _l, _u
 
-    _x, _pdf = generate_pdf(_sample_matrix)
+    _x, _pdf, _cdf = generate_pdf(_sample_matrix)
 
     dim = np.size(_sample_matrix, 1)
     _xl = np.zeros((dim, len(_x)))
@@ -106,21 +110,16 @@ def generate_probability_range(_sample_matrix):
     _p_range = np.zeros((dim, len(_x)))
     for idx in range(dim):
         # print(f"正在生成{idx+1}月的概率区间..")
-        pdf = _pdf[idx, :]
-        pdf_index = np.argsort(pdf)  # 获取从小到大排序的下标
-        pdf_index = pdf_index[::-1]  # 倒序
-        l = 1 if pdf_index[0] > pdf_index[1] else 0
-        u = 0 if pdf_index[0] > pdf_index[1] else 1
+        cdf = _cdf[idx, :]
+        l = -1
+        u = len(_x)
+        success, l, u = next_l_u(l, u)
         cnt = 0
         _p = 0
         while True:
-            _xl[idx, cnt] = _x[pdf_index[l]]
-            _xu[idx, cnt] = _x[pdf_index[u]]
-            # _p, _h = probability(_xl=np.array([_xl[idx, cnt]]), _xu=np.array([_xu[idx, cnt]]),
-            #                      _sample_matrix=np.reshape(_sample_matrix[:, idx], (-1, 1)))
-            _p += 0.00001 * (pdf[pdf_index[l]] + pdf[pdf_index[u]])
-            _p_range[idx, cnt] = _p
-            # print(cnt, _p)
+            _xl[idx, cnt] = _x[l]
+            _xu[idx, cnt] = _x[u]
+            _p_range[idx, cnt] = cdf[u] - cdf[l]
             success, l, u = next_l_u(l, u)
             if not success:
                 break
@@ -162,7 +161,7 @@ def find_abnormal_increment(_probability, _sample_matrix):
     for idx in range(dim):
         print(f"正在计算{idx+1}月的{_probability*100}%概率区间...")
         for (i, p_range) in enumerate(_p_range[idx, :]):
-            if p_range >= (1-_probability):
+            if p_range <= (1-_probability):
                 xl[idx] = _xl[idx, i]
                 xu[idx] = _xu[idx, i]
                 break
@@ -191,7 +190,7 @@ if __name__ == '__main__':
 
     print(f"正在计算概率密度函数...")
     # 给出概率密度函数图像
-    x, pdf = generate_pdf(_sample_matrix=sample_matrix)
+    x, pdf, cdf = generate_pdf(_sample_matrix=sample_matrix)
     for idx in range(12):
         sns.lineplot(x=x, y=pdf[idx, :])
     plt.show()

@@ -78,10 +78,10 @@ def figure_data_3(figure_name):
     months = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
     for month in months:
         header.append(f"{month}月概率密度函数f(x)")
-    pd_final_table = pd.DataFrame(index=range(40000), columns=header)
+    pd_final_table = pd.DataFrame(index=range(50000), columns=header)
 
     sample_matrix = load_variable("sample_matrix.kde")
-    x, pdf = generate_pdf(_sample_matrix=sample_matrix)
+    x, pdf, cdf = generate_pdf(_sample_matrix=sample_matrix)
     pd_final_table.loc[0:len(x)-1, "x"] = x
     for idx in range(12):
         pd_final_table.loc[0:len(x)-1, f"{idx+1}月概率密度函数f(x)"] = pdf[idx, :]

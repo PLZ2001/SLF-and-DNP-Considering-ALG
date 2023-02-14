@@ -220,7 +220,7 @@ if __name__ == '__main__':
     cnn = get_stacking_cnn("stacking_CNN_20230212_191903.path")
 
     data_len = 70407
-    indexes = [1008, 1003]
+    indexes = [113, 1008, 1003]
     for idx in indexes:
         # 获取数据
         conn = sqlite3.connect(r'D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划\0.数据集清洗\负荷数据表.db')
@@ -229,13 +229,13 @@ if __name__ == '__main__':
         conn.commit()
         result = cur.fetchall()
 
-        features = get_features_by_name(result[0][1], 2016)
+        features = get_features_by_name(result[0][1], 2017)
         features = features[0:2, :, :]
 
         # 输入模型
         pred = forecast(_cnn=cnn, _features=features)
-        real_normal = get_load_profile_12_by_name(result[0][1], 2017, False, 0)
-        real_total = get_load_profile_12_by_name(result[0][1], 2017, True, 0)
+        real_normal = get_load_profile_12_by_name(result[0][1], 2018, False, 0)
+        real_total = get_load_profile_12_by_name(result[0][1], 2018, True, 0)
         # real_normal_past = get_load_profile_12_by_name(result[0][1], 2017, False, 0)
         mse = np.average(np.power(real_normal-pred, 2))
         # 展示结果
