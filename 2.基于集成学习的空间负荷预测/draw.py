@@ -35,7 +35,10 @@ def figure_data_1(figure_name):
     cur = conn.cursor()
 
     data_len = 70407
-    indexes = [113, 1008, 1003]
+    # 16、17年饱和的预测：1003
+    # 16、17年上升的预测：113、34600
+    # 16、17年下降的预测：1188
+    indexes = [113, 1003, 1188, 34600]
     for idx in indexes:
         pd_final_table = pd.DataFrame(index=range(400), columns=header)
 
@@ -209,18 +212,18 @@ def figure_data_2(figure_name, start_idx, end_idx):
 
 
 if __name__ == '__main__':
-    # figure_data_1("基于集成学习的空间负荷预测结果.xlsx")
+    figure_data_1("基于集成学习的空间负荷预测结果.xlsx")
 
-    task1 = Thread(target=figure_data_2, args=("全域的基于集成学习的空间负荷预测结果(0-17601).xlsx", 0, 17601, ))
-    task2 = Thread(target=figure_data_2, args=("全域的基于集成学习的空间负荷预测结果(17602-35202).xlsx", 17602, 35202, ))
-    task3 = Thread(target=figure_data_2, args=("全域的基于集成学习的空间负荷预测结果(35203-52803).xlsx", 35203, 52803, ))
-    task4 = Thread(target=figure_data_2, args=("全域的基于集成学习的空间负荷预测结果(52804-70406).xlsx", 52804, 70406, ))
-    task1.start()
-    task2.start()
-    task3.start()
-    task4.start()
-    task1.join()
-    task2.join()
-    task3.join()
-    task4.join()
+    # task1 = Thread(target=figure_data_2, args=("全域的基于集成学习的空间负荷预测结果(0-17601).xlsx", 0, 17601, ))
+    # task2 = Thread(target=figure_data_2, args=("全域的基于集成学习的空间负荷预测结果(17602-35202).xlsx", 17602, 35202, ))
+    # task3 = Thread(target=figure_data_2, args=("全域的基于集成学习的空间负荷预测结果(35203-52803).xlsx", 35203, 52803, ))
+    # task4 = Thread(target=figure_data_2, args=("全域的基于集成学习的空间负荷预测结果(52804-70406).xlsx", 52804, 70406, ))
+    # task1.start()
+    # task2.start()
+    # task3.start()
+    # task4.start()
+    # task1.join()
+    # task2.join()
+    # task3.join()
+    # task4.join()
 
