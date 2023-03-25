@@ -31,10 +31,10 @@ class stacking_CNN(nn.Module):
         # N = (W − F + 2P )/S+1
         self.model_num = 4
         self.device = device
-        self.cnn = [get_cnn("CNN_20230212_141922.path", device),
-                    get_cnn("CNN_20230212_143623.path", device),
-                    get_cnn("CNN_20230212_175318.path", device),
-                    get_cnn("CNN_20230212_190104.path", device)]
+        self.cnn = [get_cnn(r"D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划\2.基于集成学习的空间负荷预测\CNN_20230212_141922.path", device),
+                    get_cnn(r"D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划\2.基于集成学习的空间负荷预测\CNN_20230212_143623.path", device),
+                    get_cnn(r"D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划\2.基于集成学习的空间负荷预测\CNN_20230212_175318.path", device),
+                    get_cnn(r"D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划\2.基于集成学习的空间负荷预测\CNN_20230212_190104.path", device)]
         self.integrator = nn.Sequential(
             nn.Flatten(1, -1),
             # 4*12
