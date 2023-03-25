@@ -608,99 +608,111 @@ if __name__ == '__main__':
     GIS_object = load_variable("power_supply_unit_optimization_20230322_195214.gisobj")
     evaluator = Evaluator(GIS_object)
     # 计算供电分区的指标
-    partition_weight = get_weight_for_partition(GIS_object)
-    A1_config = [partition_weight, (0, 1, 1, 3), get_TS_num_of_power_supply_partition]
-    A2_config = [partition_weight, (0, 1, 1, 3), get_administrator_num_of_power_supply_partition]
-    A3_config = [partition_weight, (0, 0, 1000, 1000), get_max_load_of_power_supply_partition]
-    a1 = evaluator.cal_partition_index(A1_config)
-    a2 = evaluator.cal_partition_index(A2_config)
-    a3 = evaluator.cal_partition_index(A3_config)
+    GIS_object.partition_weight = get_weight_for_partition(GIS_object)
+    A1_config = [GIS_object.partition_weight, (0, 1, 1, 3), get_TS_num_of_power_supply_partition]
+    A2_config = [GIS_object.partition_weight, (0, 1, 1, 3), get_administrator_num_of_power_supply_partition]
+    A3_config = [GIS_object.partition_weight, (0, 0, 1000, 1000), get_max_load_of_power_supply_partition]
+    GIS_object.a1 = evaluator.cal_partition_index(A1_config)
+    GIS_object.a2 = evaluator.cal_partition_index(A2_config)
+    GIS_object.a3 = evaluator.cal_partition_index(A3_config)
     # 计算供电分区的得分
     decision_matrix_of_partition_index = np.array([[1, 2, 1], [1/2, 1, 1], [1, 1, 1]])
-    weight_of_partition_index = get_weight_for_index_by_AHP(decision_matrix_of_partition_index)
-    score_of_partition = get_score_by_TOPSIS(weight=weight_of_partition_index, index_sample=np.array([a1, a2, a3]))
-    print(f"供电分区划分合理性得分为{score_of_partition*100}分")
+    GIS_object.weight_of_partition_index = get_weight_for_index_by_AHP(decision_matrix_of_partition_index)
+    GIS_object.score_of_partition = get_score_by_TOPSIS(weight=GIS_object.weight_of_partition_index, index_sample=np.array([GIS_object.a1, GIS_object.a2, GIS_object.a3]))
+    print(f"供电分区划分合理性得分为{GIS_object.score_of_partition*100}分")
 
     # 计算供电网格的指标
-    b1 = []
-    b2 = []
-    b3 = []
-    b4 = []
-    b5 = []
-    b6 = []
+    GIS_object.b1 = []
+    GIS_object.b2 = []
+    GIS_object.b3 = []
+    GIS_object.b4 = []
+    GIS_object.b5 = []
+    GIS_object.b6 = []
     index_samples_of_mesh = np.zeros((len(GIS_object.power_supply_partitions), 6))
+    GIS_object.mesh_weight = []
     for (idx_power_supply_partition, power_supply_partition) in enumerate(GIS_object.power_supply_partitions):
-        mesh_weight = get_weight_for_mesh(GIS_object, idx_power_supply_partition)
-        B1_config = [mesh_weight, (0, 1, 1, 3), get_administrator_num_of_power_supply_mesh]
-        B2_config = [mesh_weight, (0, 0, 0, 1), get_power_supply_independence_of_power_supply_mesh]
-        B3_config = [mesh_weight, (0, 1, 1, 3), get_power_supply_area_num_of_power_supply_mesh]
-        B4_config = [mesh_weight, (2, 2, 4, 6), get_HV_station_num_of_power_supply_mesh]
-        B5_config = [mesh_weight, (0, 0, 20, 25), get_LV_line_num_of_power_supply_mesh]
-        B6_config = [mesh_weight, (0, 1, 1, 1), get_contact_rate_of_power_supply_mesh]
-        b1.append(evaluator.cal_mesh_index(idx_power_supply_partition, B1_config))
-        b2.append(evaluator.cal_mesh_index(idx_power_supply_partition, B2_config))
-        b3.append(evaluator.cal_mesh_index(idx_power_supply_partition, B3_config))
-        b4.append(evaluator.cal_mesh_index(idx_power_supply_partition, B4_config))
-        b5.append(evaluator.cal_mesh_index(idx_power_supply_partition, B5_config))
-        b6.append(evaluator.cal_mesh_index(idx_power_supply_partition, B6_config))
-        index_samples_of_mesh[idx_power_supply_partition, :] = np.array([b1[idx_power_supply_partition],
-                                                                         b2[idx_power_supply_partition],
-                                                                         b3[idx_power_supply_partition],
-                                                                         b4[idx_power_supply_partition],
-                                                                         b5[idx_power_supply_partition],
-                                                                         b6[idx_power_supply_partition]])
+        GIS_object.mesh_weight.append(get_weight_for_mesh(GIS_object, idx_power_supply_partition))
+        B1_config = [GIS_object.mesh_weight[idx_power_supply_partition], (0, 1, 1, 3), get_administrator_num_of_power_supply_mesh]
+        B2_config = [GIS_object.mesh_weight[idx_power_supply_partition], (0, 0, 0, 1), get_power_supply_independence_of_power_supply_mesh]
+        B3_config = [GIS_object.mesh_weight[idx_power_supply_partition], (0, 1, 1, 3), get_power_supply_area_num_of_power_supply_mesh]
+        B4_config = [GIS_object.mesh_weight[idx_power_supply_partition], (2, 2, 4, 6), get_HV_station_num_of_power_supply_mesh]
+        B5_config = [GIS_object.mesh_weight[idx_power_supply_partition], (0, 0, 20, 25), get_LV_line_num_of_power_supply_mesh]
+        B6_config = [GIS_object.mesh_weight[idx_power_supply_partition], (0, 1, 1, 1), get_contact_rate_of_power_supply_mesh]
+        GIS_object.b1.append(evaluator.cal_mesh_index(idx_power_supply_partition, B1_config))
+        GIS_object.b2.append(evaluator.cal_mesh_index(idx_power_supply_partition, B2_config))
+        GIS_object.b3.append(evaluator.cal_mesh_index(idx_power_supply_partition, B3_config))
+        GIS_object.b4.append(evaluator.cal_mesh_index(idx_power_supply_partition, B4_config))
+        GIS_object.b5.append(evaluator.cal_mesh_index(idx_power_supply_partition, B5_config))
+        GIS_object.b6.append(evaluator.cal_mesh_index(idx_power_supply_partition, B6_config))
+        index_samples_of_mesh[idx_power_supply_partition, :] = np.array([GIS_object.b1[idx_power_supply_partition],
+                                                                         GIS_object.b2[idx_power_supply_partition],
+                                                                         GIS_object.b3[idx_power_supply_partition],
+                                                                         GIS_object.b4[idx_power_supply_partition],
+                                                                         GIS_object.b5[idx_power_supply_partition],
+                                                                         GIS_object.b6[idx_power_supply_partition]])
     # 计算供电网格的得分
     decision_matrix_of_mesh_index = np.array([[1, 1/2, 1/3, 1/3, 1/3, 1/4], [2, 1, 1/2, 1/2, 1/3, 1/3], [3, 2, 1, 1, 1, 1/2], [3, 2, 1, 1, 2, 1/2], [3, 3, 1, 1/2, 1, 1/2], [4, 3, 2, 2, 2, 1]])
-    weight_of_mesh_index = get_weight_for_index_by_AHP(decision_matrix_of_mesh_index) * get_weight_for_index_by_Entropy(index_samples_of_mesh)
-    weight_of_mesh_index /= np.sum(weight_of_mesh_index)
+    GIS_object.weight_of_mesh_index = get_weight_for_index_by_AHP(decision_matrix_of_mesh_index) * get_weight_for_index_by_Entropy(index_samples_of_mesh)
+    GIS_object.weight_of_mesh_index /= np.sum(GIS_object.weight_of_mesh_index)
+    GIS_object.score_of_mesh = []
     for (idx_power_supply_partition, power_supply_partition) in enumerate(GIS_object.power_supply_partitions):
-        score_of_mesh = get_score_by_TOPSIS(weight=weight_of_mesh_index, index_sample=np.array([b1[idx_power_supply_partition],
-                                                                                                b2[idx_power_supply_partition],
-                                                                                                b3[idx_power_supply_partition],
-                                                                                                b4[idx_power_supply_partition],
-                                                                                                b5[idx_power_supply_partition],
-                                                                                                b6[idx_power_supply_partition]]))
-        print(f"供电分区{power_supply_partition}的网格划分合理性得分为{score_of_mesh*100}分")
+        GIS_object.score_of_mesh.append(get_score_by_TOPSIS(weight=GIS_object.weight_of_mesh_index, index_sample=np.array([GIS_object.b1[idx_power_supply_partition],
+                                                                                                                           GIS_object.b2[idx_power_supply_partition],
+                                                                                                                           GIS_object.b3[idx_power_supply_partition],
+                                                                                                                           GIS_object.b4[idx_power_supply_partition],
+                                                                                                                           GIS_object.b5[idx_power_supply_partition],
+                                                                                                                           GIS_object.b6[idx_power_supply_partition]])))
+        print(f"供电分区{power_supply_partition}的网格划分合理性得分为{GIS_object.score_of_mesh[idx_power_supply_partition]*100}分")
 
     # 计算供电单元的指标
-    c1 = []
-    c2 = []
-    c3 = []
-    c4 = []
-    c5 = []
+    GIS_object.c1 = []
+    GIS_object.c2 = []
+    GIS_object.c3 = []
+    GIS_object.c4 = []
+    GIS_object.c5 = []
+    index_samples_of_unit = np.zeros((len(GIS_object.power_supply_partitions)*(sum(len(GIS_object.power_supply_meshes[idx_power_supply_partition]) for idx_power_supply_partition in range(len(GIS_object.power_supply_partitions)))), 5))
+    GIS_object.unit_weight = []
     cnt = 0
-    index_samples_of_unit = np.zeros((len(GIS_object.power_supply_partitions)*len(GIS_object.power_supply_meshes[idx_power_supply_partition]), 5))
     for (idx_power_supply_partition, power_supply_partition) in enumerate(GIS_object.power_supply_partitions):
+        GIS_object.c1.append([])
+        GIS_object.c2.append([])
+        GIS_object.c3.append([])
+        GIS_object.c4.append([])
+        GIS_object.c5.append([])
+        GIS_object.unit_weight.append([])
         for (idx_power_supply_mesh, power_supply_mesh) in enumerate(GIS_object.power_supply_meshes[idx_power_supply_partition]):
-            unit_weight = get_weight_for_unit(GIS_object, idx_power_supply_partition, idx_power_supply_mesh)
-            C1_config = [unit_weight, (0, 0, 0, 1), get_power_supply_independence_of_power_supply_unit]
-            C2_config = [unit_weight, (0, 1, 1, 3), get_power_supply_area_num_of_power_supply_unit]
-            C3_config = [unit_weight, (0, 1, 1, 1), get_annual_load_rate_of_power_supply_unit]
-            C4_config = [unit_weight, (0, 0, 4, 8), get_LV_line_num_of_power_supply_unit]
-            C5_config = [unit_weight, (0, 2, 2, 4), get_HV_station_num_of_power_supply_unit]
-            c1.append(evaluator.cal_unit_index(idx_power_supply_partition, idx_power_supply_mesh, C1_config))
-            c2.append(evaluator.cal_unit_index(idx_power_supply_partition, idx_power_supply_mesh, C2_config))
-            c3.append(evaluator.cal_unit_index(idx_power_supply_partition, idx_power_supply_mesh, C3_config))
-            c4.append(evaluator.cal_unit_index(idx_power_supply_partition, idx_power_supply_mesh, C4_config))
-            c5.append(evaluator.cal_unit_index(idx_power_supply_partition, idx_power_supply_mesh, C5_config))
+            GIS_object.unit_weight[idx_power_supply_partition].append(get_weight_for_unit(GIS_object, idx_power_supply_partition, idx_power_supply_mesh))
+            C1_config = [GIS_object.unit_weight[idx_power_supply_partition][idx_power_supply_mesh], (0, 0, 0, 1), get_power_supply_independence_of_power_supply_unit]
+            C2_config = [GIS_object.unit_weight[idx_power_supply_partition][idx_power_supply_mesh], (0, 1, 1, 3), get_power_supply_area_num_of_power_supply_unit]
+            C3_config = [GIS_object.unit_weight[idx_power_supply_partition][idx_power_supply_mesh], (0, 1, 1, 1), get_annual_load_rate_of_power_supply_unit]
+            C4_config = [GIS_object.unit_weight[idx_power_supply_partition][idx_power_supply_mesh], (0, 0, 4, 8), get_LV_line_num_of_power_supply_unit]
+            C5_config = [GIS_object.unit_weight[idx_power_supply_partition][idx_power_supply_mesh], (0, 2, 2, 4), get_HV_station_num_of_power_supply_unit]
+            GIS_object.c1[idx_power_supply_partition].append(evaluator.cal_unit_index(idx_power_supply_partition, idx_power_supply_mesh, C1_config))
+            GIS_object.c2[idx_power_supply_partition].append(evaluator.cal_unit_index(idx_power_supply_partition, idx_power_supply_mesh, C2_config))
+            GIS_object.c3[idx_power_supply_partition].append(evaluator.cal_unit_index(idx_power_supply_partition, idx_power_supply_mesh, C3_config))
+            GIS_object.c4[idx_power_supply_partition].append(evaluator.cal_unit_index(idx_power_supply_partition, idx_power_supply_mesh, C4_config))
+            GIS_object.c5[idx_power_supply_partition].append(evaluator.cal_unit_index(idx_power_supply_partition, idx_power_supply_mesh, C5_config))
             index_samples_of_unit[cnt, :] =\
-                np.array([c1[cnt],
-                          c2[cnt],
-                          c3[cnt],
-                          c4[cnt],
-                          c5[cnt]])
+                np.array([GIS_object.c1[idx_power_supply_partition][idx_power_supply_mesh],
+                          GIS_object.c2[idx_power_supply_partition][idx_power_supply_mesh],
+                          GIS_object.c3[idx_power_supply_partition][idx_power_supply_mesh],
+                          GIS_object.c4[idx_power_supply_partition][idx_power_supply_mesh],
+                          GIS_object.c5[idx_power_supply_partition][idx_power_supply_mesh]])
             cnt += 1
     # 计算供电单元的得分
     decision_matrix_of_unit_index = np.array([[1, 1, 1/2, 1/2, 1/2], [1, 1, 1/2, 2, 1], [2, 2, 1, 2, 1], [2, 1/2, 1/2, 1, 1], [2, 1, 1, 1, 1]])
-    weight_of_unit_index = get_weight_for_index_by_AHP(decision_matrix_of_unit_index) * get_weight_for_index_by_Entropy(index_samples_of_unit)
-    weight_of_unit_index /= np.sum(weight_of_unit_index)
-    cnt = 0
+    GIS_object.weight_of_unit_index = get_weight_for_index_by_AHP(decision_matrix_of_unit_index) * get_weight_for_index_by_Entropy(index_samples_of_unit)
+    GIS_object.weight_of_unit_index /= np.sum(GIS_object.weight_of_unit_index)
+    GIS_object.score_of_unit = []
     for (idx_power_supply_partition, power_supply_partition) in enumerate(GIS_object.power_supply_partitions):
+        GIS_object.score_of_unit.append([])
         for (idx_power_supply_mesh, power_supply_mesh) in enumerate(GIS_object.power_supply_meshes[idx_power_supply_partition]):
-            score_of_unit = get_score_by_TOPSIS(weight=weight_of_unit_index, index_sample=np.array([c1[cnt],
-                                                                                                    c2[cnt],
-                                                                                                    c3[cnt],
-                                                                                                    c4[cnt],
-                                                                                                    c5[cnt]]))
-            cnt += 1
-            print(f"供电网格{power_supply_mesh}的单元划分合理性得分为{score_of_unit*100}分")
+            GIS_object.score_of_unit[idx_power_supply_partition].append(get_score_by_TOPSIS(weight=GIS_object.weight_of_unit_index, index_sample=np.array([GIS_object.c1[idx_power_supply_partition][idx_power_supply_mesh],
+                                                                                                                                                           GIS_object.c2[idx_power_supply_partition][idx_power_supply_mesh],
+                                                                                                                                                           GIS_object.c3[idx_power_supply_partition][idx_power_supply_mesh],
+                                                                                                                                                           GIS_object.c4[idx_power_supply_partition][idx_power_supply_mesh],
+                                                                                                                                                           GIS_object.c5[idx_power_supply_partition][idx_power_supply_mesh]])))
+            print(f"供电网格{power_supply_mesh}的单元划分合理性得分为{GIS_object.score_of_unit[idx_power_supply_partition][idx_power_supply_mesh]*100}分")
+
+    date = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+    save_variable(GIS_object, f"rationality_evaluation_result_{date}.gisobj")
