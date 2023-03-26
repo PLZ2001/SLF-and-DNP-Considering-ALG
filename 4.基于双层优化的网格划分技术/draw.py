@@ -59,7 +59,7 @@ def figure_data_1(figure_name):
 
 
 def figure_data_2(figure_name):
-    header = ["名称", "维度Lng", "经度Lat", "类型代号", "id"]
+    header = ["名称", "维度Lng", "经度Lat", "类型", "类型代号", "id"]
     GIS_object = load_variable("rationality_evaluation_result_20230325_144634.gisobj")
 
     # 读取用户数据
@@ -92,6 +92,7 @@ def figure_data_2(figure_name):
         content = [user[1],
                    GIS_object.CRS_transformer.mercator2lnglat.transform(x, y)[0],
                    GIS_object.CRS_transformer.mercator2lnglat.transform(x, y)[1],
+                   "终端用户",
                    0,
                    user[0]]
         pd_final_table.loc[idx] = content
@@ -101,6 +102,7 @@ def figure_data_2(figure_name):
         content = [TS[1],
                    GIS_object.CRS_transformer.mercator2lnglat.transform(x, y)[0],
                    GIS_object.CRS_transformer.mercator2lnglat.transform(x, y)[1],
+                   "供电所",
                    3,
                    TS[0]]
         pd_final_table.loc[idx] = content
@@ -110,6 +112,7 @@ def figure_data_2(figure_name):
         content = [HV_station[1],
                    GIS_object.CRS_transformer.mercator2lnglat.transform(x, y)[0],
                    GIS_object.CRS_transformer.mercator2lnglat.transform(x, y)[1],
+                   "高压变电站",
                    2,
                    HV_station[0]]
         pd_final_table.loc[idx] = content
@@ -119,6 +122,7 @@ def figure_data_2(figure_name):
         content = [Transformer[1],
                    GIS_object.CRS_transformer.mercator2lnglat.transform(x, y)[0],
                    GIS_object.CRS_transformer.mercator2lnglat.transform(x, y)[1],
+                   "配电变压器",
                    1,
                    Transformer[0]]
         pd_final_table.loc[idx] = content
@@ -174,7 +178,7 @@ def figure_data_3(figure_name):
 
 if __name__ == '__main__':
     # figure_data_1("网格化划分结果.xlsx")
-    # figure_data_2("供电所3、高压变电站2、配变1、终端用户0的地理坐标.xlsx")
-    figure_data_3("网格划分合理性评估体系评估结果.xlsx")
+    figure_data_2("供电所3、高压变电站2、配变1、终端用户0的地理坐标.xlsx")
+    # figure_data_3("网格划分合理性评估体系评估结果.xlsx")
 
 
