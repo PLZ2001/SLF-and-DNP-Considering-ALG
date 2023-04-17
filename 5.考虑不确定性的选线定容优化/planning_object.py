@@ -18,9 +18,9 @@
 # 双层优化方法：当上层或下层的目标函数值无法比上一代更好时，终止迭代
 
 import sys
-sys.path.append(r"F:\FTP\计及负荷异常增长的空间负荷预测与配电网规划\4.基于双层优化的网格划分技术")
-sys.path.append(r"F:\FTP\计及负荷异常增长的空间负荷预测与配电网规划\2.基于集成学习的空间负荷预测")
-sys.path.append(r"F:\FTP\计及负荷异常增长的空间负荷预测与配电网规划\1.异常增长诊断和概率模型")
+sys.path.append(r"D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划\4.基于模糊综合评价理论的网格划分技术")
+sys.path.append(r"D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划\2.基于集成学习的空间负荷预测")
+sys.path.append(r"D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划\1.异常增长诊断和概率模型")
 from AE_evaluate import get_autoencoder1, evaluate, save_variable, load_variable, evaluate_and_get_normal_component
 from KDE import h_optimizer, kde
 from SLF_forecast import get_load_profile_12_by_name
@@ -31,14 +31,12 @@ from sklearn.cluster import BisectingKMeans
 import matplotlib.pyplot as plt
 
 
-
-
 class PlanningObject():
     def __init__(self):
-        self.GIS_object = load_variable(r"F:\FTP\计及负荷异常增长的空间负荷预测与配电网规划\4.基于双层优化的网格划分技术\rationality_evaluation_result_20230325_144634.gisobj")
+        self.GIS_object = load_variable(r"D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划\4.基于模糊综合评价理论的网格划分技术\rationality_evaluation_result_20230325_144634.gisobj")
         self.GIS_object.get_network()
         # 读取用户数据
-        conn = sqlite3.connect(r'F:\FTP\计及负荷异常增长的空间负荷预测与配电网规划\3.数据集清洗（续）\规划数据表.db')
+        conn = sqlite3.connect(r'D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划\3.数据集清洗（续）\规划数据表.db')
         cur = conn.cursor()
         cur.execute('''select * from "入户点数据"''')
         conn.commit()
@@ -78,8 +76,18 @@ class PlanningObject():
         self.SteinerNode_names = []
         for SteinerNode in self.SteinerNodes:
             self.SteinerNode_names.append(SteinerNode[1])
+        # 读取道路数据
+        cur = conn.cursor()
+        cur.execute('''select * from "道路数据"''')
+        conn.commit()
+        self.StreetBranches = cur.fetchall()
+        # 生成道路图数据
+        self.street_node_name_list = []
+        self.street_graph = nx.Graph()
+        self.get_street_graph()
+
         # 获取空间负荷预测结果
-        conn = sqlite3.connect(r'F:\FTP\计及负荷异常增长的空间负荷预测与配电网规划\2.基于集成学习的空间负荷预测\空间负荷预测结果.db')
+        conn = sqlite3.connect(r'D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划\2.基于集成学习的空间负荷预测\空间负荷预测结果.db')
         cur = conn.cursor()
         cur.execute('''select * from "空间负荷预测结果"''')
         conn.commit()
@@ -102,7 +110,7 @@ class PlanningObject():
         self.planning_transformer_xy = np.zeros((len(self.planning_transformer_name), 2))
         self.get_planning_transformer_xy()
         # 规划区域涉及虚拟配变的数目（20个）
-        self.planning_transformer_num_virtual = 15
+        self.planning_transformer_num_virtual = 30
         # 规划区域涉及虚拟配变的名称（20个）
         self.planning_transformer_name_virtual = range(self.planning_transformer_num_virtual)
         # 规划区域涉及虚拟配变的位置信息（20个）和配变所属虚拟配变的标签
@@ -252,13 +260,13 @@ class PlanningObject():
         # # 样本矩阵
         # _sample_matrix = np.zeros((data_len, 12))
         # # 数据库
-        # conn = sqlite3.connect(r'F:\FTP\计及负荷异常增长的空间负荷预测与配电网规划\0.数据集清洗\负荷数据表.db')
+        # conn = sqlite3.connect(r'D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划\0.数据集清洗\负荷数据表.db')
         # cur = conn.cursor()
         # cur.execute('''select * from "负荷数据表" where "年份" = 2016 OR "年份" = 2017''')
         # conn.commit()
         # results = cur.fetchall()
         # # 获取自编码器模型
-        # auto_encoder = get_autoencoder1(r"F:\FTP\计及负荷异常增长的空间负荷预测与配电网规划\1.异常增长诊断和概率模型\AutoEncoder_20230125_123858.path")
+        # auto_encoder = get_autoencoder1(r"D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划\1.异常增长诊断和概率模型\AutoEncoder_20230125_123858.path")
         # # 建立名字和idx的映射表
         # name_map = {}
         # for idx in range(70407):
@@ -322,12 +330,12 @@ class PlanningObject():
         # # 样本矩阵
         # _sample_matrix = np.zeros((data_len, 1))
         # # 数据库
-        # conn = sqlite3.connect(r'F:\FTP\计及负荷异常增长的空间负荷预测与配电网规划\0.数据集清洗\负荷数据表.db')
+        # conn = sqlite3.connect(r'D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划\0.数据集清洗\负荷数据表.db')
         # cur = conn.cursor()
         # cur.execute('''select * from "负荷数据表"''')
         # conn.commit()
         # results = cur.fetchall()
-        # auto_encoder = get_autoencoder1(r"F:\FTP\计及负荷异常增长的空间负荷预测与配电网规划\1.异常增长诊断和概率模型\AutoEncoder_20230125_123858.path")
+        # auto_encoder = get_autoencoder1(r"D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划\1.异常增长诊断和概率模型\AutoEncoder_20230125_123858.path")
         # # 建立名字和idx的映射表
         # name_map = {}
         # for idx in range(70407):
@@ -385,6 +393,26 @@ class PlanningObject():
         self.forecast_error_pdf = _pdf
         self.forecast_error_cdf = _cdf
 
+    def get_street_graph(self):
+        # for (idx, result) in enumerate(self.StreetBranches):
+        #     print(f"{idx}/{len(self.StreetBranches)}")
+        #     start_node = result[3]+'-'+result[2]
+        #     end_node = result[6]+'-'+result[2]
+        #     if start_node not in self.street_node_name_list:
+        #         self.street_node_name_list.append(start_node)
+        #     if end_node not in self.street_node_name_list:
+        #         self.street_node_name_list.append(end_node)
+        #     self.street_graph.add_nodes_from([
+        #         (self.street_node_name_list.index(start_node), {"name": start_node, "x": result[4], "y": result[5]}),
+        #         (self.street_node_name_list.index(end_node), {"name": end_node, "x": result[7], "y": result[8]}),
+        #     ])
+        #     self.street_graph.add_edges_from([
+        #         (self.street_node_name_list.index(start_node), self.street_node_name_list.index(end_node)),
+        #     ])
+        # save_variable(self.street_graph, "street_graph.nx")
+        # save_variable(self.street_node_name_list, "street_node_name_list.list")
+        self.street_node_name_list = load_variable("street_node_name_list.list")
+        self.street_graph = load_variable("street_graph.nx")
 
 if __name__ == '__main__':
     planning_object = PlanningObject()
