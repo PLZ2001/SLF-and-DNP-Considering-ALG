@@ -155,23 +155,46 @@ if __name__ == '__main__':
     #             final_table.loc[len(final_table)] = content
     # final_table.to_csv("入户点数据.csv")
 
-    header = ["斯坦纳点名称", "区域", "子区域", "x", "y"]
+    # header = ["斯坦纳点名称", "区域", "子区域", "x", "y"]
+    # final_table = pd.DataFrame(columns=header)
+    # for area in areas:
+    #     for sub_area in sub_areas:
+    #         base_path = fr"GIS\{area}\{sub_area}\DummyEquip"
+    #         print(f"正在读取{area}地区{sub_area}子地区的斯坦纳点数据...")
+    #
+    #         sf = shapefile.Reader(base_path)
+    #         shapes = sf.shapes()
+    #         records = sf.records()
+    #         for i in range(len(shapes)):
+    #             print(f"{i}/{len(shapes)}")
+    #             if records[i].Node.find("DM") != -1:
+    #                 content = [records[i].Node,
+    #                            area,
+    #                            sub_area,
+    #                            shapes[i].points[0][0],
+    #                            shapes[i].points[0][1]]
+    #                 final_table.loc[len(final_table)] = content
+    # final_table.to_csv("斯坦纳点数据.csv")
+
+    header = ["区域", "子区域", "道路节点A名称", "道路节点A的x", "道路节点A的y", "道路节点B名称", "道路节点B的x", "道路节点B的y"]
     final_table = pd.DataFrame(columns=header)
     for area in areas:
         for sub_area in sub_areas:
-            base_path = fr"GIS\{area}\{sub_area}\DummyEquip"
-            print(f"正在读取{area}地区{sub_area}子地区的斯坦纳点数据...")
+            base_path = fr"GIS\{area}\{sub_area}\StreetMap_branches"
+            print(f"正在读取{area}地区{sub_area}子地区的道路数据...")
 
             sf = shapefile.Reader(base_path)
             shapes = sf.shapes()
             records = sf.records()
             for i in range(len(shapes)):
                 print(f"{i}/{len(shapes)}")
-                if records[i].Node.find("DM") != -1:
-                    content = [records[i].Node,
-                               area,
-                               sub_area,
-                               shapes[i].points[0][0],
-                               shapes[i].points[0][1]]
-                    final_table.loc[len(final_table)] = content
-    final_table.to_csv("斯坦纳点数据.csv")
+                content = [area,
+                           sub_area,
+                           records[i].Node_A,
+                           shapes[i].points[0][0],
+                           shapes[i].points[0][1],
+                           records[i].Node_B,
+                           shapes[i].points[1][0],
+                           shapes[i].points[1][1]]
+                final_table.loc[len(final_table)] = content
+    final_table.to_csv("道路数据.csv")
