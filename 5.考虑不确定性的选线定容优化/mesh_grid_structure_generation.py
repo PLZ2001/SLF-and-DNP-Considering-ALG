@@ -1,20 +1,20 @@
 import numpy as np
 import time
 import sys
-sys.path.append(r"F:\FTP\计及负荷异常增长的空间负荷预测与配电网规划\4.基于双层优化的网格划分技术")
+sys.path.append(r"D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划\4.基于模糊综合评价理论的网格划分技术")
 from GIS_object import get_block_index
 import sqlite3
 import matplotlib.pyplot as plt
 import datetime
 import networkx as nx
 import sys
-sys.path.append(r"F:\FTP\计及负荷异常增长的空间负荷预测与配电网规划\1.异常增长诊断和概率模型")
+sys.path.append(r"D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划\1.异常增长诊断和概率模型")
 from AE_evaluate import save_variable, load_variable
 
 
-GIS_object = load_variable(r"F:\FTP\计及负荷异常增长的空间负荷预测与配电网规划\4.基于双层优化的网格划分技术\rationality_evaluation_result_20230325_144634.gisobj")
+GIS_object = load_variable(r"D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划\4.基于模糊综合评价理论的网格划分技术\rationality_evaluation_result_20230325_144634.gisobj")
 # 读取用户数据
-conn = sqlite3.connect(r'F:\FTP\计及负荷异常增长的空间负荷预测与配电网规划\3.数据集清洗（续）\规划数据表.db')
+conn = sqlite3.connect(r'D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划\3.数据集清洗（续）\规划数据表.db')
 cur = conn.cursor()
 cur.execute('''select * from "入户点数据"''')
 conn.commit()
