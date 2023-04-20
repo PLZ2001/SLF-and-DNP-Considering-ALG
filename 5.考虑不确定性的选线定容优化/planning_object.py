@@ -228,9 +228,9 @@ class PlanningObject():
             self.planning_transformer_cos_phi[id_transformer] = cos_phi / cnt
 
     def get_planning_transformer_load_profile(self):
-        for (id_transformer, transfomer) in enumerate(self.planning_transformer_name):
+        for (id_transformer, transformer) in enumerate(self.planning_transformer_name):
             load_profile = np.zeros(12)
-            for user in self.planning_transformer_users[transfomer]:
+            for user in self.planning_transformer_users[transformer]:
                 load_profile += self.planning_user_load_profile[self.planning_user_name.index(user)]
             self.planning_transformer_load_profile[id_transformer] = load_profile
 
@@ -245,7 +245,8 @@ class PlanningObject():
         explored_node.append(node_id)
         neighbor_nodes = self.planning_grid_graph[node_id]
         for neighbor_node_id in list(neighbor_nodes.keys()):
-            if self.GIS_object.node_name_list[neighbor_node_id].find("LV") != -1 or self.GIS_object.node_name_list[neighbor_node_id].find("MV") != -1 and neighbor_node_id not in explored_node:
+            # if self.GIS_object.node_name_list[neighbor_node_id].find("LV") != -1 or self.GIS_object.node_name_list[neighbor_node_id].find("MV") != -1 and neighbor_node_id not in explored_node:
+            if self.GIS_object.node_name_list[neighbor_node_id].find("LV") != -1 and neighbor_node_id not in explored_node:
                 self.planning_transformer_users[transformer_name].append(self.GIS_object.node_name_list[neighbor_node_id])
                 self.find_neighbor_user(transformer_name, neighbor_node_id, explored_node)
             elif self.GIS_object.node_name_list[neighbor_node_id].find("DM") != -1 and neighbor_node_id not in explored_node:
