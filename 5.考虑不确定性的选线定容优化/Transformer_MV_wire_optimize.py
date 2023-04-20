@@ -73,7 +73,7 @@ def random_pick(local_load, x, pdf, level = 1000):
 
 
 def get_virtual_transformer_path(L_min, L_group, planning_object, wire_cnt, HV_station_id_i, HV_station_id_j):
-    all_node_distance = load_variable(f"all_node_distance_{planning_object.planning_transformer_num_virtual}VTS.np")
+    all_node_distance = load_variable(f"all_node_distance_30VTS_20230418_133623.np")
     # 接下来是根据L_min反推出单环网所经过的虚拟配变路径
     # 待选路径的总数目
     try_times = planning_object.planning_transformer_num_virtual
@@ -177,13 +177,20 @@ def print_every_wire(max_out_wire, planning_object, S_X, L_min_X, L_group_X, con
                         if 0.9 <= S_X[out_wire_id, transformer_id, HV_station_id_i] <= 1.1 and 0.9 <= S_X[out_wire_id, transformer_id, HV_station_id_j] <= 1.1:
                             planning_transformer_x.append(planning_object.planning_transformer_xy[transformer_id, 0])
                             planning_transformer_y.append(planning_object.planning_transformer_xy[transformer_id, 1])
-
+                    # 开关站坐标
+                    planning_virtual_transformer_x = []
+                    planning_virtual_transformer_y = []
+                    for (transformer_id, transformer) in enumerate(planning_object.planning_transformer_name):
+                        if 0.9 <= S_X[out_wire_id, transformer_id, HV_station_id_i] <= 1.1 and 0.9 <= S_X[out_wire_id, transformer_id, HV_station_id_j] <= 1.1:
+                            planning_virtual_transformer_x.append(planning_object.planning_transformer_xy_virtual[int(planning_object.planning_transformer_virtual_label[transformer_id]),0])
+                            planning_virtual_transformer_y.append(planning_object.planning_transformer_xy_virtual[int(planning_object.planning_transformer_virtual_label[transformer_id]),1])
                     # 根据L_min反推出单环网所经过的虚拟配变路径
                     p = get_virtual_transformer_path(L_min_X[out_wire_id, wire_cnt], L_group_X[out_wire_id, wire_cnt, :], planning_object, wire_cnt, HV_station_id_i, HV_station_id_j)
                     if len(p) != 0:
                         # 画出单环网对应的上级变电站和配变的点
                         plt.scatter(planning_transformer_x, planning_transformer_y, c="b")
                         plt.scatter(planning_HV_station_x, planning_HV_station_y, c="r")
+                        plt.scatter(planning_virtual_transformer_x, planning_virtual_transformer_y, c="g")
                         # 单环网各节点的坐标
                         wire_x = []
                         wire_y = []
@@ -348,7 +355,7 @@ def get_shortest_street_path(planning_object, start_node, end_node):
 if __name__ == '__main__':
     planning_object = PlanningObject()
     nodes = planning_object.street_graph.nodes.data()
-    # 虚拟配变数目改变时要重新生成
+
     # all_node_num = len(planning_object.planning_HV_station_name) + planning_object.planning_transformer_num_virtual
     # all_node_distance = np.zeros((all_node_num, all_node_num))
     # cnt = 0
@@ -392,10 +399,11 @@ if __name__ == '__main__':
     #     for iteration_j in range(all_node_num):
     #         if iteration_i > iteration_j:
     #             all_node_distance[iteration_i, iteration_j] = all_node_distance[iteration_j, iteration_i]
-    # save_variable(all_node_distance, f"all_node_distance_{planning_object.planning_transformer_num_virtual}VTS.np")
-    all_node_distance = load_variable(f"all_node_distance_{planning_object.planning_transformer_num_virtual}VTS.np")
+    # date = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+    # save_variable(all_node_distance, f"all_node_distance_{planning_object.planning_transformer_num_virtual}VTS_{date}.np")
+    # all_node_distance = load_variable(f"all_node_distance_{planning_object.planning_transformer_num_virtual}VTS_{date}.np")
 
-    print_all_node(planning_object)
+    # print_all_node(planning_object)
 
     # 对每个月获得各月的低、中、高典型异常增长率，得到三种典型场景：低异常增长、中异常增长、高异常增长，以及各场景的概率权重
     typical_abnormal_rate = np.zeros((12, 3))
@@ -533,7 +541,7 @@ if __name__ == '__main__':
                             model.addConstr(S_multiply[out_wire_id, transformer_id, wire_cnt] <= S[out_wire_id, transformer_id, HV_station_id_j])
                             model.addConstr(S_multiply[out_wire_id, transformer_id, wire_cnt] >= S[out_wire_id, transformer_id, HV_station_id_i] + S[out_wire_id, transformer_id, HV_station_id_j] - 1)
                             wire_cnt += 1
-
+        # 如果只优化配变扩容，把所有的if scene == 0:替换为if scene == -1:
         if scene == 0:
             # 约束1：L_min[wire_cnt]是两个变电站之间trytimes条虚拟配变排列路径组L_group_list中的最小合法值
             for out_wire_id in range(max_out_wire):
@@ -788,11 +796,11 @@ if __name__ == '__main__':
         print(L_group.X)
         date = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
         save_variable(C.X, f"C_{planning_object.planning_transformer_num_virtual}VTS_{scene}scene_{date}.gp")
+        save_variable(planning_object, f"planning_object_{date}.plaobj")
         if scene == 0:
             save_variable(S.X, f"S_{planning_object.planning_transformer_num_virtual}VTS_{scene}scene_{date}.gp")
             save_variable(L_min.X, f"Lmin_{planning_object.planning_transformer_num_virtual}VTS_{scene}scene_{date}.gp")
             save_variable(L_group.X, f"Lgroup_{planning_object.planning_transformer_num_virtual}VTS_{scene}scene_{date}.gp")
-            save_variable(planning_object, f"planning_object_{date}.plaobj")
 
             print_every_wire(max_out_wire, planning_object, S.X, L_min.X, L_group.X, True)
             print_all_wire(max_out_wire, planning_object, S.X, L_min.X, L_group.X, True)
