@@ -45,13 +45,14 @@ def evaluate(_auto_encoder, _increment):
     _pred = _pred.to("cpu").detach().numpy()
     _mse = np.average(np.power(_increment-_pred, 2))
     _normal_increment = _pred
+    _normal_increment_trend = _pred
     _abnormal_increment = _increment - _normal_increment
     rd = sm.tsa.seasonal_decompose(_abnormal_increment, period=7)
     _abnormal_increment_trend = np.array(rd.trend)
     _abnormal_increment_trend[0:3] = _abnormal_increment[0:3]
     _abnormal_increment_trend[362:365] = _abnormal_increment[362:365]
     _normal_increment = _increment - _abnormal_increment_trend
-    return _normal_increment, _abnormal_increment_trend, _mse
+    return _normal_increment, _abnormal_increment_trend, _mse, _normal_increment_trend
 
 
 # 根据异常增长分量诊断模型获取正常增长的结果（输入是365点的年负荷曲线）

@@ -34,7 +34,7 @@ def figure_data_1(figure_name):
 
 
 def figure_data_2(figure_name):
-    header = ["增长前负荷曲线(MW)", "增长后负荷曲线(MW)", "增长分量(MW)", "正常增长分量(MW)", "异常增长分量(MW)", "去除异常增长分量后的增长后负荷曲线(MW)"]
+    header = ["增长前负荷曲线(MW)", "增长后负荷曲线(MW)", "增长分量(MW)", "正常增长分量(MW)", "异常增长分量(MW)", "去除异常增长分量后的增长后负荷曲线(MW)", "正常增长趋势分量(MW)"]
     writer = pd.ExcelWriter(figure_name)
 
     conn = sqlite3.connect(r'D:\OneDrive\桌面\毕设\代码\计及负荷异常增长的空间负荷预测与配电网规划\0.数据集清洗\负荷数据表.db')
@@ -57,10 +57,11 @@ def figure_data_2(figure_name):
         result1 = cur.fetchall()
         increment = np.array(result1[0][33:33+365]) / 1000 - np.array(result[0][33:33+365]) / 1000
         # 输入模型
-        normal_increment, abnormal_increment, mse = evaluate(_auto_encoder=auto_encoder, _increment=increment)
+        normal_increment, abnormal_increment, mse, normal_increment_trend = evaluate(_auto_encoder=auto_encoder, _increment=increment)
 
         pd_final_table.loc[0:len(increment)-1, "增长分量(MW)"] = increment
         pd_final_table.loc[0:len(increment)-1, "正常增长分量(MW)"] = normal_increment
+        pd_final_table.loc[0:len(increment)-1, "正常增长趋势分量(MW)"] = normal_increment_trend
         pd_final_table.loc[0:len(increment)-1, "异常增长分量(MW)"] = abnormal_increment
         pd_final_table.loc[0:len(increment)-1, "增长前负荷曲线(MW)"] = np.array(result[0][33:33+365]) / 1000
         pd_final_table.loc[0:len(increment)-1, "增长后负荷曲线(MW)"] = np.array(result1[0][33:33+365]) / 1000
@@ -111,5 +112,5 @@ def figure_data_3(figure_name):
 
 if __name__ == '__main__':
     # figure_data_1("16-17年各用户各日期峰荷增长数据.xlsx")
-    # figure_data_2("16-17年各用户各日期峰荷异常增长情况.xlsx")
-    figure_data_3("16-17年异常增长概率模型.xlsx")
+    figure_data_2("16-17年各用户各日期峰荷异常增长情况.xlsx")
+    # figure_data_3("16-17年异常增长概率模型.xlsx")
